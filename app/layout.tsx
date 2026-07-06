@@ -1,45 +1,47 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { Toaster } from 'sonner';
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+import type { Metadata, Viewport } from 'next'
+import { Toaster } from 'sonner'
+import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Secure VMS — Visitor Management System',
-  description:
-    'A modern, secure visitor management system for residential complexes and buildings.',
-  keywords: ['visitor management', 'security', 'resident', 'QR code', 'guest pass'],
-  authors: [{ name: 'Secure VMS' }],
-  openGraph: {
-    title: 'Secure VMS',
-    description: 'Modern visitor management for smart buildings',
-    type: 'website',
+  title: {
+    default: 'SecureEntry - Visitor Management System',
+    template: '%s | SecureEntry',
   },
-};
+  description: 'Enterprise-grade visitor management system for residential buildings. Manage guest passes, track entries, and ensure building security.',
+  keywords: ['visitor management', 'guest pass', 'building security', 'QR code', 'residential'],
+  authors: [{ name: 'SecureEntry' }],
+  robots: 'noindex, nofollow',
+  icons: {
+    icon: '/icon.svg',
+  },
+}
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const viewport: Viewport = {
+  colorScheme: 'light',
+  themeColor: [{ color: '#ffffff' }],
+  userScalable: true,
+  width: 'device-width',
+  initialScale: 1,
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} font-sans antialiased bg-gray-950 text-gray-100`}>
+    <html lang="en" className="light" suppressHydrationWarning>
+      <body
+        className="antialiased bg-white text-slate-900 font-sans"
+        suppressHydrationWarning
+      >
         {children}
         <Toaster
-          position="top-right"
+          position="top-center"
+          expand={false}
           richColors
-          theme="dark"
+          closeButton
           toastOptions={{
-            style: {
-              background: '#1e293b',
-              border: '1px solid #334155',
-              color: '#f1f5f9',
-            },
+            duration: 4000,
           }}
         />
       </body>
     </html>
-  );
+  )
 }

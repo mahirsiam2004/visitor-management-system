@@ -1,0 +1,179 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
+import { ClipboardList } from 'lucide-react'
+import { getEntryLogs, checkOutGuest } from '@/app/actions/guest-passes'
+import { Button } from '@/components/ui/button'
+import StatusBadge from '@/components/shared/StatusBadge'
+import SearchAndFilter from '@/components/shared/SearchAndFilter'
+import DataTable from '@/components/shared/DataTable'
+import PageHeader from '@/components/layout/PageHeader'
+import { useDebounce } from '@/hooks/useDebounce'
+import { usePagination } from '@/hooks/usePagination'
+import { formatDateTime, calculateVisitDuration } from '@/lib/utils/guest-pass'
+import { PAGE_SIZE } from '@/constants'
+import { LogOut } from 'lucide-react'
+import { toast as sonnerToast } from 'sonner'
+
+export default function EntryLogsPage() {
+  const [logs, setLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [checkingOut, setCheckingOut] = useState<string | null>(null)
+  const debouncedSearch = useDebounce(search, 400)
+  const { page, pageSize, total, setTotal, goToPage, setPage } = usePagination({ pageSize: PAGE_SIZE })
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const result = await getEntryLogs({
+        page,
+        pageSize,
+        status: statusFilter || undefined,
+      })
+      if (result.success) {
+        setLogs(result.data.data)
+        setTotal(result.data.total)
+      } else {
+        toast.error(result.error)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [page, pageSize, statusFilter])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter])
+
+  const handleCheckOut = async (logId: string, guestName: string) => {
+    setCheckingOut(logId)
+    try {
+      const result = await checkOutGuest({ entryLogId: logId })
+      if (result.success) {
+        sonnerToast.success(`${guestName} checked out`)
+        fetchLogs()
+      } else {
+        sonnerToast.error(result.error)
+      }
+    } finally {
+      setCheckingOut(null)
+    }
+  }
+
+  const columns = [
+    {
+      key: 'guest',
+      label: 'Guest',
+      render: (log: any) => (
+        <div>
+          <p className="font-medium text-slate-900">{log.guest_pass?.guest_name || 'Unknown'}</p>
+          <p className="text-xs text-slate-400">Apt {log.guest_pass?.apartment_number}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'purpose',
+      label: 'Purpose',
+      render: (log: any) => <span className="text-slate-600 text-sm">{log.guest_pass?.purpose || '-'}</span>,
+    },
+    {
+      key: 'entry_time',
+      label: 'Entry Time',
+      render: (log: any) => (
+        <span className="text-slate-600 text-sm">{formatDateTime(log.entry_time)}</span>
+      ),
+    },
+    {
+      key: 'exit_time',
+      label: 'Exit Time',
+      render: (log: any) => (
+        <span className="text-slate-600 text-sm">
+          {log.exit_time ? formatDateTime(log.exit_time) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'duration',
+      label: 'Duration',
+      render: (log: any) => (
+        <span className="text-slate-600 text-sm">
+          {calculateVisitDuration(log.entry_time, log.exit_time || undefined)}
+        </span>
+      ),
+    },
+    {
+      key: 'guard',
+      label: 'Guard',
+      render: (log: any) => (
+        <span className="text-slate-600 text-sm">{log.security_guard?.full_name || '—'}</span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (log: any) => <StatusBadge type="entry" status={log.status} />,
+    },
+    {
+      key: 'actions',
+      label: '',
+      render: (log: any) => (
+        log.status === 'inside' ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => handleCheckOut(log.id, log.guest_pass?.guest_name || 'Guest')}
+            disabled={checkingOut === log.id}
+          >
+            <LogOut className="h-3 w-3" />
+            Check Out
+          </Button>
+        ) : null
+      ),
+    },
+  ]
+
+  return (
+    <div className="p-6 lg:p-8 space-y-6 max-w-6xl mx-auto">
+      <PageHeader title="Entry Logs" description="Complete history of all visitor entries and exits" />
+
+      <SearchAndFilter
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search entries..."
+        filters={[
+          {
+            key: 'status',
+            label: 'All Status',
+            value: statusFilter,
+            options: [
+              { value: 'inside', label: 'Inside' },
+              { value: 'completed', label: 'Completed' },
+            ],
+            onChange: setStatusFilter,
+          },
+        ]}
+        onClear={() => { setSearch(''); setStatusFilter('') }}
+      />
+
+      <DataTable
+        data={logs}
+        columns={columns}
+        loading={loading}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={goToPage}
+        rowKey={(log: any) => log.id}
+        emptyMessage="No entry logs found"
+      />
+    </div>
+  )
+}

@@ -1,69 +1,108 @@
-export type UserRole = 'resident' | 'security' | 'admin';
+export type UserRole = 'resident' | 'security' | 'admin'
 
-export type GuestStatus = 'active' | 'expired' | 'inside' | 'completed';
+export type GuestPassStatus = 'valid' | 'expired' | 'revoked'
 
-export interface IUser {
-  _id: string;
-  name: string;
-  email: string;
-  phone: string;
-  apartment?: string;
-  role: UserRole;
-  createdAt: string;
+export type EntryLogStatus = 'inside' | 'completed'
+
+export interface Profile {
+  id: string
+  email: string
+  full_name: string
+  phone_number: string | null
+  apartment_number: string | null
+  role: UserRole
+  created_at: string
+  updated_at: string
 }
 
-export interface IGuestPass {
-  _id: string;
-  residentId: string | IUser;
-  guestName: string;
-  guestPhone: string;
-  purpose: string;
-  visitDate: string;
-  visitTime: string;
-  duration: number;
-  guestId: string;
-  qrToken: string;
-  expiresAt: string;
-  status: GuestStatus;
-  entryTime?: string;
-  exitTime?: string;
-  createdAt: string;
+export interface GuestPass {
+  id: string
+  guest_id: string
+  guest_name: string
+  guest_phone: string | null
+  resident_id: string
+  apartment_number: string
+  visit_date: string
+  visit_time: string
+  expiry_time: string
+  duration_hours: number
+  purpose: string
+  qr_token: string
+  status: GuestPassStatus
+  created_at: string
+  updated_at: string
 }
 
-export interface IEntryLog {
-  _id: string;
-  guestPass: string | IGuestPass;
-  securityGuard: string | IUser;
-  checkIn: string;
-  checkOut?: string;
+export interface GuestPassWithResident extends GuestPass {
+  resident: Pick<Profile, 'id' | 'full_name' | 'email' | 'apartment_number'>
 }
 
-export interface JWTPayload {
-  userId: string;
-  email: string;
-  role: UserRole;
-  name: string;
+export interface EntryLog {
+  id: string
+  guest_pass_id: string
+  security_guard_id: string
+  entry_time: string
+  exit_time: string | null
+  status: EntryLogStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
 }
 
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  error?: string;
+export interface EntryLogWithDetails extends EntryLog {
+  guest_pass: Pick<GuestPass, 'guest_name' | 'guest_id' | 'apartment_number' | 'purpose' | 'guest_phone' | 'visit_date' | 'visit_time' | 'expiry_time'>
+  security_guard: Pick<Profile, 'id' | 'full_name'>
 }
 
 export interface DashboardStats {
-  totalGuests: number;
-  activeGuests: number;
-  expiredPasses: number;
-  completedVisits: number;
+  totalGuests: number
+  activeGuests: number
+  expiredPasses: number
+  completedVisits: number
 }
 
-export interface AdminDashboardStats {
-  totalResidents: number;
-  totalGuards: number;
-  totalPasses: number;
-  activeToday: number;
-  completedToday: number;
-  recentLogs: IEntryLog[];
+export interface AdminStats {
+  totalResidents: number
+  totalSecurityGuards: number
+  totalGuestPasses: number
+  activeGuests: number
+  completedVisits: number
+  expiredPasses: number
 }
+
+export interface QRScanResult {
+  token: string
+}
+
+export interface VerifyTokenResult {
+  valid: boolean
+  guestPass?: GuestPassWithResident
+  entryLog?: EntryLog
+  message?: string
+  status?: 'valid' | 'expired' | 'already_inside' | 'completed' | 'revoked' | 'not_found'
+}
+
+export interface PaginationParams {
+  page: number
+  pageSize: number
+}
+
+export interface PaginatedResult<T> {
+  data: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface FilterParams {
+  search?: string
+  status?: string
+  role?: string
+  dateFrom?: string
+  dateTo?: string
+}
+
+export type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string }
