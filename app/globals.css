@@ -3,6 +3,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Custom local font: PHOEWAGE (logo text only) */
+@font-face {
+  font-family: 'Phoewage';
+  src: url('/fonts/PHOEWAGE.ttf') format('truetype'),
+       url('/fonts/PHOEWAGE.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --background: #ffffff;
@@ -24,6 +34,16 @@
   --input: #e2e8f0;
   --ring: #3b82f6;
   --radius: 0.625rem;
+  --font-brand: 'Phoewage', system-ui, sans-serif;
+}
+
+/* ============================================================
+   POPPINS — applied to every element in the entire app
+   ============================================================ */
+*,
+*::before,
+*::after {
+  font-family: var(--font-poppins), 'Poppins', system-ui, -apple-system, sans-serif !important;
 }
 
 @layer base {
@@ -33,7 +53,8 @@
     padding: 0;
   }
 
-  body {
+  html, body {
+    font-family: var(--font-poppins), 'Poppins', system-ui, -apple-system, sans-serif;
     background-color: var(--background);
     color: var(--foreground);
     line-height: 1.5;
@@ -41,14 +62,15 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  html {
-    /* scroll-behavior managed by Next.js router */
-  }
-
   *:focus-visible {
     outline: 2px solid #3b82f6;
     outline-offset: 2px;
   }
+}
+
+/* Brand font — only for .font-brand class */
+.font-brand {
+  font-family: var(--font-brand) !important;
 }
 
 @layer utilities {
@@ -61,27 +83,13 @@
   }
 }
 
-/* QR Scanner overrides */
+/* QR Scanner */
 #qr-scanner-container video {
   border-radius: 0.75rem !important;
 }
 
-#qr-scanner-container * {
-  font-family: inherit !important;
-}
-
-/* Print styles for QR code */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  .print-area,
-  .print-area * {
-    visibility: visible;
-  }
-  .print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-  }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; }
 }

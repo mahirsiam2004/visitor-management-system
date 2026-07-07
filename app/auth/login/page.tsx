@@ -6,11 +6,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { loginSchema, type LoginInput } from '@/lib/validations/schemas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import Logo from '@/components/ui/Logo'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -88,12 +89,9 @@ export default function LoginPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-blue-600 shadow-lg shadow-blue-600/25 mb-4">
-            <Lock className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-slate-500">Sign in to SecureEntry VMS</p>
+        <div className="flex flex-col items-center mb-8 gap-2">
+          <Logo size="xl" />
+          <p className="text-sm text-slate-500">Sign in to your account</p>
         </div>
 
         {/* Form */}

@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Lock, QrCode, Shield, BarChart3, ArrowRight, CheckCircle } from 'lucide-react'
+import { QrCode, Shield, BarChart3, ArrowRight, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Logo from '@/components/ui/Logo'
 
 const features = [
   {
@@ -28,12 +29,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-            <Lock className="h-4 w-4 text-white" />
-          </div>
-          <span className="font-bold text-slate-900">SecureEntry</span>
-        </div>
+        <Logo size="lg" />
         <div className="flex items-center gap-3">
           <Link href="/auth/login">
             <Button variant="ghost" size="sm">Sign In</Button>

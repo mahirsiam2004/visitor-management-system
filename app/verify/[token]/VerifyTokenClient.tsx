@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Lock, CheckCircle, XCircle, Clock, User, Home, AlertCircle, Calendar } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { formatDate, formatTime, formatDateTime } from '@/lib/utils/guest-pass'
+import Logo from '@/components/ui/Logo'
 import Link from 'next/link'
 
 interface VerifyTokenClientProps {
@@ -97,11 +98,8 @@ export default function VerifyTokenClient({ token, initialResult }: VerifyTokenC
         className="w-full max-w-sm space-y-4"
       >
         {/* Header */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
-            <Lock className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-lg font-semibold text-slate-900">SecureEntry</span>
+        <div className="flex items-center justify-center mb-6">
+          <Logo size="md" />
         </div>
 
         {/* Status Card */}

@@ -7,11 +7,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Lock, Eye, EyeOff, ArrowRight, Check } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, Check } from 'lucide-react'
 import { signUp } from '@/app/actions/auth'
 import { signUpSchema, type SignUpInput } from '@/lib/validations/schemas'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import Logo from '@/components/ui/Logo'
 
 const passwordRequirements = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -44,8 +46,14 @@ export default function SignUpPage() {
         if (result.data.requiresEmailConfirmation) {
           router.push('/auth/sign-up-success')
         } else {
+          // Email confirmation disabled — log in directly
+          const supabase = createClient()
+          await supabase.auth.signInWithPassword({
+            email: data.email,
+            password: data.password,
+          })
           toast.success('Account created successfully!')
-          router.push('/dashboard/resident')
+          window.location.replace('/dashboard/resident')
         }
       } else {
         toast.error(result.error)
@@ -68,12 +76,9 @@ export default function SignUpPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-blue-600 shadow-lg shadow-blue-600/25 mb-4">
-            <Lock className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
-          <p className="mt-1.5 text-sm text-slate-500">Join SecureEntry as a Resident</p>
+        <div className="flex flex-col items-center mb-8 gap-2">
+          <Logo size="xl" />
+          <p className="text-sm text-slate-500">Create your resident account</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">

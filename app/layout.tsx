@@ -1,6 +1,15 @@
 import type { Metadata, Viewport } from 'next'
+import { Poppins } from 'next/font/google'
 import { Toaster } from 'sonner'
 import './globals.css'
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
+  style: ['normal', 'italic'],
+  variable: '--font-poppins',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -12,7 +21,9 @@ export const metadata: Metadata = {
   authors: [{ name: 'SecureEntry' }],
   robots: 'noindex, nofollow',
   icons: {
-    icon: '/icon.svg',
+    icon: '/logo.png',
+    apple: '/logo.png',
+    shortcut: '/logo.png',
   },
 }
 
@@ -26,9 +37,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="light" suppressHydrationWarning>
+    <html lang="en" className={`light ${poppins.variable}`} suppressHydrationWarning>
       <body
-        className="antialiased bg-white text-slate-900 font-sans"
+        className="antialiased bg-white text-slate-900"
+        style={{ fontFamily: 'var(--font-poppins), Poppins, system-ui, sans-serif' }}
         suppressHydrationWarning
       >
         {children}

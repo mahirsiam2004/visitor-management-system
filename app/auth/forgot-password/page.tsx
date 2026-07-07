@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { Lock, ArrowRight, ArrowLeft, Mail } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Mail } from 'lucide-react'
 import { forgotPassword } from '@/app/actions/auth'
 import { forgotPasswordSchema, type ForgotPasswordInput } from '@/lib/validations/schemas'
 import { Button } from '@/components/ui/button'
@@ -50,8 +50,8 @@ export default function ForgotPasswordPage() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-blue-600 shadow-lg shadow-blue-600/25 mb-4">
-            <Lock className="h-6 w-6 text-white" />
+          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl overflow-hidden mb-4 shadow-lg">
+            <img src="/logo.png" alt="SecureEntry" className="h-12 w-12 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">
             {sent ? 'Check your email' : 'Reset your password'}
