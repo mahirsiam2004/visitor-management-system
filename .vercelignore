@@ -3,6 +3,3 @@
 node_modules
 .next
 supabase/migrations
-*.png
-*.jpg
-*.zip
