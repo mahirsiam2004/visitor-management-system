@@ -18,8 +18,14 @@ export const metadata: Metadata = {
   },
   description: 'Enterprise-grade visitor management system for residential buildings. Manage guest passes, track entries, and ensure building security.',
   keywords: ['visitor management', 'guest pass', 'building security', 'QR code', 'residential'],
-  authors: [{ name: 'SecureEntry' }],
-  robots: 'noindex, nofollow',
+  authors: [{ name: 'Mahir Siam' }],
+  robots: { index: true, follow: true },
+  openGraph: {
+    title: 'SecureEntry - Visitor Management System',
+    description:
+      'Modern visitor management for residential communities — QR guest passes, guard verification, and admin analytics.',
+    type: 'website',
+  },
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
