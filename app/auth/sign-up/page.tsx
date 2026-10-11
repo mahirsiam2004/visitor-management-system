@@ -132,7 +132,7 @@ export default function SignUpPage() {
                     id="phoneNumber"
                     type="tel"
                     autoComplete="tel"
-                    placeholder="+1 555 0100"
+                    placeholder="01XXXXXXXXX"
                     disabled={loading}
                     aria-invalid={!!errors.phoneNumber}
                     {...register('phoneNumber')}

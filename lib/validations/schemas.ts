@@ -1,4 +1,62 @@
 import { z } from 'zod'
+import { normalizeBdPhone } from '@/lib/utils/guest-pass'
+
+// ── Bangladesh phone: 01[3-9]XXXXXXXX or +8801[3-9]XXXXXXXX ──────────────
+const BD_PHONE_RE = /^(?:\+?88)?01[3-9]\d{8}$/
+
+function validateAndNormalizeBdPhone(val: string): string {
+  const stripped = val.replace(/[\s\-().]/g, '')
+  if (!BD_PHONE_RE.test(stripped)) {
+    throw new Error('Enter a valid BD number: 01XXXXXXXXX or +8801XXXXXXXXX')
+  }
+  return normalizeBdPhone(stripped)
+}
+
+const bdPhoneSchema = z
+  .string()
+  .min(1, 'Phone number is required')
+  .transform((val, ctx) => {
+    try {
+      return validateAndNormalizeBdPhone(val)
+    } catch (e) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: (e as Error).message,
+      })
+      return z.NEVER
+    }
+  })
+
+const bdPhoneOptionalSchema = z
+  .string()
+  .optional()
+  .transform((val, ctx) => {
+    if (!val || val.trim() === '') return undefined
+    try {
+      return validateAndNormalizeBdPhone(val.trim())
+    } catch (e) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: (e as Error).message,
+      })
+      return z.NEVER
+    }
+  })
+
+// ── Apartment: letter(s) + hyphen + digits, e.g. A-101, B2-305 ────────────
+const APARTMENT_RE = /^[A-Za-z]\d*-\d{1,4}[A-Za-z]?$/
+
+const apartmentSchema = z
+  .string()
+  .min(1, 'Apartment number is required')
+  .max(20, 'Apartment number too long')
+  .refine(
+    (v) => APARTMENT_RE.test(v.trim()),
+    'Use format A-101 (letter, hyphen, number)'
+  )
+  .transform((v) => v.trim().toUpperCase())
+
+// ────────────────────────────────────────────────────────────────────────────
 
 export const signUpSchema = z
   .object({
@@ -6,16 +64,9 @@ export const signUpSchema = z
       .string()
       .min(2, 'Full name must be at least 2 characters')
       .max(100, 'Full name must be less than 100 characters'),
-    email: z.email('Please enter a valid email address'),
-    phoneNumber: z
-      .string()
-      .min(7, 'Phone number must be at least 7 digits')
-      .max(20, 'Phone number too long')
-      .regex(/^[+\d\s\-().]+$/, 'Invalid phone number format'),
-    apartmentNumber: z
-      .string()
-      .min(1, 'Apartment number is required')
-      .max(20, 'Apartment number too long'),
+    email: z.string().email('Please enter a valid email address'),
+    phoneNumber: bdPhoneSchema,
+    apartmentNumber: apartmentSchema,
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters')
@@ -30,13 +81,13 @@ export const signUpSchema = z
   })
 
 export const loginSchema = z.object({
-  email: z.email('Please enter a valid email address'),
+  email: z.string().email('Please enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
   rememberMe: z.boolean().optional(),
 })
 
 export const forgotPasswordSchema = z.object({
-  email: z.email('Please enter a valid email address'),
+  email: z.string().email('Please enter a valid email address'),
 })
 
 export const resetPasswordSchema = z
@@ -59,13 +110,9 @@ export const createGuestPassSchema = z.object({
     .string()
     .min(2, 'Guest name must be at least 2 characters')
     .max(100, 'Guest name too long'),
-  guestPhone: z
-    .string()
-    .regex(/^[+\d\s\-().]+$/, 'Invalid phone number format')
-    .optional()
-    .or(z.literal('')),
+  guestPhone: bdPhoneOptionalSchema,
   visitDate: z.string().refine((date) => {
-    const selected = new Date(date + 'T00:00:00')
+    const selected = new Date(date + 'T00:00:00+06:00') // Dhaka local
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return selected >= today
@@ -96,16 +143,17 @@ export const updateProfileSchema = z.object({
     .optional(),
   phoneNumber: z
     .string()
-    .min(7, 'Phone number must be at least 7 digits')
-    .max(20, 'Phone number too long')
-    .regex(/^[+\d\s\-().]+$/, 'Invalid phone number format')
     .optional()
-    .or(z.literal('')),
-  apartmentNumber: z
-    .string()
-    .min(1, 'Apartment number is required')
-    .max(20, 'Apartment number too long')
-    .optional(),
+    .transform((val, ctx) => {
+      if (!val || val.trim() === '') return undefined
+      try {
+        return validateAndNormalizeBdPhone(val.trim())
+      } catch (e) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: (e as Error).message })
+        return z.NEVER
+      }
+    }),
+  apartmentNumber: apartmentSchema.optional(),
 })
 
 export const changePasswordSchema = z

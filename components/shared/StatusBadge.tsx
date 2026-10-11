@@ -31,11 +31,14 @@ export default function StatusBadge({ type, status, className }: StatusBadgeProp
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
         colorClass,
         className
       )}
     >
+      {status === 'overstay' && (
+        <span className="mr-1 h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+      )}
       {label}
     </span>
   )

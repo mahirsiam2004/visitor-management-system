@@ -1,4 +1,8 @@
 import { v4 as uuidv4 } from 'uuid'
+import type { GuestPass, ComputedPassStatus } from '@/types'
+
+// Asia/Dhaka is UTC+6
+const DHAKA_TZ = 'Asia/Dhaka'
 
 export function generateQRToken(): string {
   return uuidv4()
@@ -15,20 +19,39 @@ export function buildQRUrl(token: string): string {
   return `${baseUrl}/verify/${token}`
 }
 
+/**
+ * Compute expiry time in UTC.
+ * visitDate: 'YYYY-MM-DD' (date entered by user in Dhaka local time)
+ * visitTime: 'HH:MM'      (time entered by user in Dhaka local time)
+ * We interpret both as Asia/Dhaka, then convert to UTC for storage.
+ */
 export function calculateExpiryTime(
   visitDate: string,
   visitTime: string,
   durationHours: number
 ): Date {
-  const [year, month, day] = visitDate.split('-').map(Number)
-  const [hours, minutes] = visitTime.split(':').map(Number)
-  const visitDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0)
-  visitDateTime.setTime(visitDateTime.getTime() + durationHours * 60 * 60 * 1000)
-  return visitDateTime
+  // Build an ISO string with the Dhaka offset (+06:00)
+  const localIso = `${visitDate}T${visitTime}:00+06:00`
+  const visitUTC = new Date(localIso)
+  if (isNaN(visitUTC.getTime())) {
+    throw new Error(`Invalid visitDate/visitTime: ${visitDate} ${visitTime}`)
+  }
+  return new Date(visitUTC.getTime() + durationHours * 60 * 60 * 1000)
 }
 
 export function isPassExpired(expiryTime: string): boolean {
   return new Date(expiryTime) < new Date()
+}
+
+/**
+ * Returns the authoritative display status for a pass.
+ * Never trusts the stored `status` alone — always re-checks expiry_time.
+ */
+export function getComputedPassStatus(pass: Pick<GuestPass, 'status' | 'expiry_time'>): ComputedPassStatus {
+  if (pass.status === 'revoked') return 'revoked'
+  if (pass.status === 'used') return 'used'
+  if (pass.status === 'expired' || isPassExpired(pass.expiry_time)) return 'expired'
+  return 'valid'
 }
 
 export function getPassTimeRemaining(expiryTime: string): string {
@@ -41,15 +64,15 @@ export function getPassTimeRemaining(expiryTime: string): string {
   const hours = Math.floor(diff / (1000 * 60 * 60))
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
 
-  if (hours > 0) {
-    return `${hours}h ${minutes}m remaining`
-  }
+  if (hours > 0) return `${hours}h ${minutes}m remaining`
   return `${minutes}m remaining`
 }
 
+/** Format a UTC timestamp for display in Asia/Dhaka */
 export function formatDateTime(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleString('en-US', {
+  if (!dateString) return '—'
+  return new Date(dateString).toLocaleString('en-US', {
+    timeZone: DHAKA_TZ,
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -58,29 +81,41 @@ export function formatDateTime(dateString: string): string {
   })
 }
 
+/** Format just the date portion in Asia/Dhaka */
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
+  if (!dateString) return '—'
+  // DATE columns (visit_date) come as 'YYYY-MM-DD' — parse without timezone conversion
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
+  return new Date(dateString).toLocaleDateString('en-US', {
+    timeZone: DHAKA_TZ,
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   })
 }
 
+/** Format just a TIME column (HH:MM or ISO string) for display in Dhaka */
 export function formatTime(timeString: string): string {
+  if (!timeString) return '—'
   if (timeString.includes('T')) {
     return new Date(timeString).toLocaleTimeString('en-US', {
+      timeZone: DHAKA_TZ,
       hour: '2-digit',
       minute: '2-digit',
     })
   }
+  // Plain 'HH:MM' from TIME column — display as-is interpreted in Dhaka
   const [hours, minutes] = timeString.split(':')
-  const date = new Date()
-  date.setHours(parseInt(hours), parseInt(minutes))
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const d = new Date()
+  d.setHours(parseInt(hours), parseInt(minutes))
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function calculateVisitDuration(entryTime: string, exitTime?: string): string {
@@ -96,10 +131,22 @@ export function calculateVisitDuration(entryTime: string, exitTime?: string): st
   return `${hours}h ${minutes}m`
 }
 
+export function getOverstayMinutes(expectedExitAt: string): number {
+  const now = new Date()
+  const expected = new Date(expectedExitAt)
+  const diff = now.getTime() - expected.getTime()
+  return Math.max(0, Math.floor(diff / 60000))
+}
+
 export function getTodayString(): string {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  // Return today's date in Dhaka timezone as YYYY-MM-DD
+  return new Date().toLocaleDateString('en-CA', { timeZone: DHAKA_TZ })
+}
+
+/** Normalize a Bangladesh phone number to +8801XXXXXXXXX */
+export function normalizeBdPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('8801') && digits.length === 13) return `+${digits}`
+  if (digits.startsWith('01') && digits.length === 11) return `+88${digits}`
+  return `+${digits}`
 }

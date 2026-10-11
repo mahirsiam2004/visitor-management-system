@@ -66,23 +66,29 @@ export const PASS_STATUS_LABELS: Record<string, string> = {
   valid: 'Valid',
   expired: 'Expired',
   revoked: 'Revoked',
+  used: 'Used',
 }
 
 export const ENTRY_STATUS_LABELS: Record<string, string> = {
   inside: 'Inside',
   completed: 'Completed',
+  overstay: 'Overstay',
 }
 
 export const PASS_STATUS_COLORS: Record<string, string> = {
   valid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   expired: 'bg-amber-50 text-amber-700 border-amber-200',
   revoked: 'bg-red-50 text-red-700 border-red-200',
+  used: 'bg-slate-50 text-slate-600 border-slate-200',
 }
 
 export const ENTRY_STATUS_COLORS: Record<string, string> = {
   inside: 'bg-blue-50 text-blue-700 border-blue-200',
   completed: 'bg-slate-50 text-slate-600 border-slate-200',
+  overstay: 'bg-red-50 text-red-700 border-red-200',
 }
+
+export const OVERSTAY_GRACE_MINUTES = 15
 
 export const ROLE_COLORS: Record<string, string> = {
   resident: 'bg-blue-50 text-blue-700 border-blue-200',

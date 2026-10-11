@@ -253,7 +253,7 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
             <Input
               id="guestPhone"
               type="tel"
-              placeholder="+1 555 0100"
+              placeholder="01XXXXXXXXX"
               disabled={loading}
               {...register('guestPhone')}
             />

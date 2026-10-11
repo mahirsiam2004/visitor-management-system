@@ -2,30 +2,52 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Scan, Users, CheckCircle, Clock, ArrowRight } from 'lucide-react'
+import { Scan, Users, CheckCircle, Clock, AlertTriangle, Phone, ArrowRight, LogOut } from 'lucide-react'
 import StatsCard from '@/components/shared/StatsCard'
 import StatusBadge from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { formatDateTime } from '@/lib/utils/guest-pass'
+import { formatDateTime, getOverstayMinutes } from '@/lib/utils/guest-pass'
+
+interface OverstayEntry {
+  id: string
+  entry_time: string
+  expected_exit_at: string | null
+  overstay_started_at: string | null
+  guest_pass: {
+    guest_name: string
+    apartment_number: string
+    purpose: string
+    guest_phone: string | null
+    resident: {
+      full_name: string
+      phone_number: string | null
+    } | null
+  } | null
+}
 
 interface SecurityDashboardClientProps {
   insideNow: number
   completedToday: number
   totalToday: number
+  overstayCount: number
   recentLogs: any[]
+  overstays: OverstayEntry[]
 }
 
 export default function SecurityDashboardClient({
   insideNow,
   completedToday,
   totalToday,
+  overstayCount,
   recentLogs,
+  overstays,
 }: SecurityDashboardClientProps) {
   const stats = [
     { title: 'Visitors Today', value: totalToday, icon: Users, color: 'blue' as const },
     { title: 'Inside Now', value: insideNow, icon: Clock, color: 'green' as const },
     { title: 'Completed Today', value: completedToday, icon: CheckCircle, color: 'slate' as const },
+    { title: 'Overstaying', value: overstayCount, icon: AlertTriangle, color: 'amber' as const },
   ]
 
   return (
@@ -35,19 +57,25 @@ export default function SecurityDashboardClient({
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Security Dashboard</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            {new Date().toLocaleDateString('en-US', {
+              timeZone: 'Asia/Dhaka',
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
           </p>
         </div>
         <Link href="/dashboard/security/scanner">
-          <Button className="gap-2">
-            <Scan className="h-4 w-4" />
+          <Button className="gap-2 h-12 px-6 text-base">
+            <Scan className="h-5 w-5" />
             Open Scanner
           </Button>
         </Link>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
           <StatsCard
             key={stat.title}
@@ -59,6 +87,95 @@ export default function SecurityDashboardClient({
           />
         ))}
       </div>
+
+      {/* ── Overstay Alert Panel ── */}
+      {overstays.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <h2 className="text-lg font-semibold text-red-700">
+              Overstay Alert — {overstays.length} {overstays.length === 1 ? 'Guest' : 'Guests'}
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {overstays.map((entry) => {
+              const minsOver = entry.expected_exit_at
+                ? getOverstayMinutes(entry.expected_exit_at)
+                : 0
+              const residentPhone = entry.guest_pass?.resident?.phone_number
+
+              return (
+                <Card
+                  key={entry.id}
+                  className="border-red-300 bg-red-50/60 p-4"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Icon */}
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <p className="font-semibold text-red-900 text-base">
+                          {entry.guest_pass?.guest_name ?? '—'}
+                        </p>
+                        <StatusBadge type="entry" status="overstay" />
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-red-700 font-medium">
+                        <span>Apt {entry.guest_pass?.apartment_number}</span>
+                        <span>{entry.guest_pass?.purpose}</span>
+                        {entry.expected_exit_at && (
+                          <span>Expected out: {formatDateTime(entry.expected_exit_at)}</span>
+                        )}
+                        <span className="text-red-800 font-bold">
+                          {minsOver} min over
+                        </span>
+                      </div>
+                      {entry.guest_pass?.resident && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Resident: {entry.guest_pass.resident.full_name}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Call resident button */}
+                    {residentPhone ? (
+                      <a
+                        href={`tel:${residentPhone}`}
+                        className="shrink-0"
+                        aria-label={`Call resident ${entry.guest_pass?.resident?.full_name}`}
+                      >
+                        <Button
+                          size="sm"
+                          className="gap-1.5 bg-red-600 hover:bg-red-700 text-white h-10 px-4"
+                        >
+                          <Phone className="h-4 w-4" />
+                          Call Resident
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-1.5 border-red-300 text-red-700 h-10 px-4"
+                        disabled
+                      >
+                        <Phone className="h-4 w-4" />
+                        No phone
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {/* Quick Actions */}
       <div className="grid gap-4 sm:grid-cols-3">
