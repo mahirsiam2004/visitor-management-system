@@ -1,12 +1,7 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/expire-passes",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/detect-overstays",
-      "schedule": "*/5 * * * *"
-    }
+    { "path": "/api/cron/expire-passes",       "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/detect-overstays",    "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/expire-visit-requests", "schedule": "*/2 * * * *" }
   ]
 }

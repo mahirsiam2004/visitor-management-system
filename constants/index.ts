@@ -29,6 +29,11 @@ export const ROUTES = {
   ADMIN_GUEST_PASSES: '/dashboard/admin/guest-passes',
   ADMIN_ENTRY_LOGS: '/dashboard/admin/entry-logs',
   ADMIN_ANALYTICS: '/dashboard/admin/analytics',
+  ADMIN_EVENTS: '/dashboard/admin/events',
+  ADMIN_BLACKLIST: '/dashboard/admin/blacklist',
+  RESIDENT_STAFF: '/dashboard/resident/staff',
+  RESIDENT_EVENTS: '/dashboard/resident/events',
+  SECURITY_QUICK_ENTRY: '/dashboard/security/quick-entry',
 
   VERIFY: '/verify',
 } as const
@@ -130,6 +135,96 @@ export const ACCESS_ATTEMPT_LABELS: Record<string, string> = {
 }
 
 export const BUILDING_ADDRESS = 'SecureEntry Residential Complex, Dhaka, Bangladesh'
+
+// ── Visitor types ──────────────────────────────────────────────────────────
+export const VISITOR_TYPE_LABELS: Record<string, string> = {
+  one_time:     'One-Time Guest',
+  recurring:    'Recurring Staff',
+  delivery:     'Delivery',
+  minor_family: 'Minor / Family',
+  event:        'Event Guest',
+  walk_in:      'Walk-in',
+  emergency:    'Emergency',
+}
+
+export const RECURRING_VISITOR_ROLES = [
+  'Maid / বুয়া',
+  'Driver',
+  'Cook',
+  'Tutor',
+  'Caretaker',
+  'Gardener',
+  'Security (private)',
+  'Other',
+] as const
+
+export const WEEKDAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as const
+
+export const DELIVERY_PLATFORMS = [
+  'Foodpanda',
+  'Pathao Food',
+  'Shohoz Food',
+  'Daraz',
+  'Pathao Courier',
+  'Steadfast',
+  'RedX',
+  'eCourier',
+  'Other',
+] as const
+
+export const EMERGENCY_TYPES = [
+  'Doctor',
+  'Ambulance',
+  'Fire Service',
+  'Police',
+  'Gas Emergency',
+  'Plumber / Electrician (urgent)',
+  'Other',
+] as const
+
+export const EVENT_TYPES = [
+  { value: 'wedding',       label: 'Wedding / Biye' },
+  { value: 'birthday',      label: 'Birthday Party' },
+  { value: 'puja',          label: 'Puja / Religious' },
+  { value: 'eid_gathering', label: 'Eid Gathering' },
+  { value: 'corporate',     label: 'Corporate Event' },
+  { value: 'other',         label: 'Other' },
+] as const
+
+export const EVENT_APPROVAL_THRESHOLD = 50  // events with >50 guests need admin approval
+
+export const DELIVERY_RESIDENT_REPLY_MINUTES = 2    // resident has 2 min to respond
+export const DELIVERY_ACCESS_WINDOW_MINUTES  = 20   // delivery gets 20 min after approval
+export const WALK_IN_RESIDENT_REPLY_MINUTES  = 5    // walk-in gets 5 min
+
+export const VISIT_REQUEST_STATUS_LABELS: Record<string, string> = {
+  pending:       'Waiting for Resident',
+  approved:      'Approved',
+  rejected:      'Rejected',
+  expired:       'Timed Out',
+  completed:     'Completed',
+  leave_at_gate: 'Leave at Gate',
+}
+
+export const EVENT_STATUS_LABELS: Record<string, string> = {
+  upcoming:   'Upcoming',
+  active:     'Active',
+  completed:  'Ended',
+  cancelled:  'Cancelled',
+}
+
+export const APPROVAL_STATUS_LABELS: Record<string, string> = {
+  pending:      'Pending Approval',
+  approved:     'Approved',
+  rejected:     'Rejected',
+  not_required: 'No Approval Needed',
+}
+
+export const EVENT_GUEST_STATUS_LABELS: Record<string, string> = {
+  invited:  'Invited',
+  arrived:  'Arrived',
+  no_show:  'No Show',
+}
 
 export const ROLE_COLORS: Record<string, string> = {
   resident: 'bg-blue-50 text-blue-700 border-blue-200',

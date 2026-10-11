@@ -30,6 +30,11 @@ import {
   Menu,
   X,
   ShieldCheck,
+  RefreshCcw,
+  CalendarDays,
+  AlertTriangle,
+  Zap,
+  ShieldOff,
 } from 'lucide-react'
 
 interface NavItem {
@@ -39,27 +44,32 @@ interface NavItem {
 }
 
 const residentNav: NavItem[] = [
-  { label: 'Dashboard',        href: '/dashboard/resident',             icon: LayoutDashboard },
-  { label: 'Create Guest Pass', href: '/dashboard/resident/create-pass', icon: Plus },
-  { label: 'Guest History',    href: '/dashboard/resident/history',     icon: History },
-  { label: 'Profile',          href: '/dashboard/resident/profile',     icon: User },
-  { label: 'Settings',         href: '/dashboard/resident/settings',    icon: Settings },
+  { label: 'Dashboard',         href: '/dashboard/resident',              icon: LayoutDashboard },
+  { label: 'Create Guest Pass', href: '/dashboard/resident/create-pass',  icon: Plus },
+  { label: 'Guest History',     href: '/dashboard/resident/history',      icon: History },
+  { label: 'My Staff',          href: '/dashboard/resident/staff',        icon: RefreshCcw },
+  { label: 'My Events',         href: '/dashboard/resident/events',       icon: CalendarDays },
+  { label: 'Profile',           href: '/dashboard/resident/profile',      icon: User },
+  { label: 'Settings',          href: '/dashboard/resident/settings',     icon: Settings },
 ]
 
 const securityNav: NavItem[] = [
-  { label: 'Dashboard',         href: '/dashboard/security',          icon: LayoutDashboard },
+  { label: 'Dashboard',         href: '/dashboard/security',              icon: LayoutDashboard },
+  { label: 'Quick Entry',       href: '/dashboard/security/quick-entry',  icon: Zap },
   { label: 'QR Scanner',        href: '/dashboard/security/scanner',  icon: Scan },
   { label: "Today's Visitors",  href: '/dashboard/security/visitors', icon: Users },
   { label: 'Entry Logs',        href: '/dashboard/security/logs',     icon: ClipboardList },
 ]
 
 const adminNav: NavItem[] = [
-  { label: 'Dashboard',      href: '/dashboard/admin',              icon: LayoutDashboard },
-  { label: 'Residents',      href: '/dashboard/admin/residents',    icon: Building2 },
-  { label: 'Security Guards', href: '/dashboard/admin/security',    icon: Shield },
-  { label: 'Guest Passes',   href: '/dashboard/admin/guest-passes', icon: QrCode },
-  { label: 'Entry Logs',     href: '/dashboard/admin/entry-logs',   icon: ClipboardList },
-  { label: 'Analytics',      href: '/dashboard/admin/analytics',    icon: BarChart3 },
+  { label: 'Dashboard',         href: '/dashboard/admin',               icon: LayoutDashboard },
+  { label: 'Residents',         href: '/dashboard/admin/residents',     icon: Building2 },
+  { label: 'Security Guards',   href: '/dashboard/admin/security',      icon: Shield },
+  { label: 'Guest Passes',      href: '/dashboard/admin/guest-passes',  icon: QrCode },
+  { label: 'Entry Logs',        href: '/dashboard/admin/entry-logs',    icon: ClipboardList },
+  { label: 'Event Approvals',   href: '/dashboard/admin/events',        icon: CalendarDays },
+  { label: 'Blacklist',         href: '/dashboard/admin/blacklist',     icon: ShieldOff },
+  { label: 'Analytics',         href: '/dashboard/admin/analytics',     icon: BarChart3 },
 ]
 
 const navByRole: Record<UserRole, NavItem[]> = {
