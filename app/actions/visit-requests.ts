@@ -17,10 +17,10 @@ async function requireAuth() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { data: profile } = await supabase
-    .from('profiles').select('role, is_active, full_name, apartment_number, delivery_auto_allow_until')
-    .eq('id', user.id).single()
+    .from('profiles').select('*')
+    .eq('id', user.id).maybeSingle()
   if (!profile) throw new Error('Profile not found')
-  if (!profile.is_active) throw new Error('Account deactivated')
+  if ((profile as any).is_active === false) throw new Error('Account deactivated')
   return { supabase, user, profile }
 }
 
@@ -28,11 +28,10 @@ async function requireAuth() {
 async function getResidentByApartment(supabase: any, apartment: string) {
   const { data } = await supabase
     .from('profiles')
-    .select('id, full_name, phone_number, delivery_auto_allow_until')
+    .select('id, full_name, phone_number')
     .eq('apartment_number', apartment)
     .eq('role', 'resident')
-    .eq('is_active', true)
-    .single()
+    .maybeSingle()
   return data
 }
 
@@ -311,9 +310,9 @@ export async function createEmergencyEntry(input: {
       })
     }
 
-    // Notify all active admins
+    // Notify all admins
     const { data: admins } = await supabase
-      .from('profiles').select('id').eq('role', 'admin').eq('is_active', true)
+      .from('profiles').select('id').eq('role', 'admin')
     for (const admin of admins || []) {
       await writeNotification(supabase, {
         recipient_id: admin.id,

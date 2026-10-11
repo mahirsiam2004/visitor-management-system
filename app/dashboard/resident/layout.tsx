@@ -32,5 +32,5 @@ export default async function ResidentLayout({ children }: { children: React.Rea
 
   if (profile.role !== 'resident') redirect(`/dashboard/${profile.role}`)
 
-  return <DashboardLayout profile={profile}>{children}</DashboardLayout>
+  return <DashboardLayout profile={{ ...profile, is_active: (profile as any).is_active !== false }}>{children}</DashboardLayout>
 }

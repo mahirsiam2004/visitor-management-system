@@ -1,13 +1,20 @@
 import type { Metadata, Viewport } from 'next'
-import { Poppins } from 'next/font/google'
+import { Poppins, Noto_Sans_Bengali } from 'next/font/google'
 import { Toaster } from 'sonner'
+import OfflineBanner from '@/components/features/OfflineBanner'
 import './globals.css'
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
-  style: ['normal', 'italic'],
+  weight: ['300', '400', '500', '600', '700', '800'],
   variable: '--font-poppins',
+  display: 'swap',
+})
+
+const notoBengali = Noto_Sans_Bengali({
+  subsets: ['bengali'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-bengali',
   display: 'swap',
 })
 
@@ -16,21 +23,10 @@ export const metadata: Metadata = {
     default: 'SecureEntry - Visitor Management System',
     template: '%s | SecureEntry',
   },
-  description: 'Enterprise-grade visitor management system for residential buildings. Manage guest passes, track entries, and ensure building security.',
-  keywords: ['visitor management', 'guest pass', 'building security', 'QR code', 'residential'],
-  authors: [{ name: 'Mahir Siam' }],
-  robots: { index: true, follow: true },
-  openGraph: {
-    title: 'SecureEntry - Visitor Management System',
-    description:
-      'Modern visitor management for residential communities — QR guest passes, guard verification, and admin analytics.',
-    type: 'website',
-  },
-  icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
-    shortcut: '/logo.png',
-  },
+  description: 'Visitor management system for residential buildings in Bangladesh.',
+  manifest: '/manifest.json',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'SecureEntry' },
+  icons: { icon: '/icons/icon-192.png', apple: '/icons/icon-192.png' },
 }
 
 export const viewport: Viewport = {
@@ -43,12 +39,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`light ${poppins.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`light ${poppins.variable} ${notoBengali.variable}`} suppressHydrationWarning>
       <body
         className="antialiased bg-white text-slate-900"
-        style={{ fontFamily: 'var(--font-poppins), Poppins, system-ui, sans-serif' }}
+        style={{ fontFamily: 'var(--font-poppins), var(--font-bengali), system-ui, sans-serif' }}
         suppressHydrationWarning
       >
+        <OfflineBanner />
         {children}
         <Toaster
           position="top-center"

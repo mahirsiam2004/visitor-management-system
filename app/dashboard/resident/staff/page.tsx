@@ -68,13 +68,19 @@ export default function StaffPage() {
     if (!file) return
     setPhotoUploading(true)
     try {
-      const supabase = createClient()
-      const path = `staff-photos/${Date.now()}.${file.name.split('.').pop()}`
-      const { error } = await supabase.storage.from('guest-photos').upload(path, file, { upsert: false })
-      if (error) throw error
-      const { data: { publicUrl } } = supabase.storage.from('guest-photos').getPublicUrl(path)
-      setForm((f) => ({ ...f, photoUrl: publicUrl }))
-      toast.success('Photo uploaded')
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const result = await res.json()
+
+      if (!result.success) throw new Error(result.error || 'Upload failed')
+
+      setForm((f) => ({ ...f, photoUrl: result.displayUrl || result.url }))
+      toast.success('Photo uploaded via ImgBB')
     } catch (e: any) {
       toast.error(e.message ?? 'Upload failed')
     } finally {

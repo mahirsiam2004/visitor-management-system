@@ -94,7 +94,7 @@ export async function notify(
       .from('notification_preferences')
       .select('*')
       .eq('user_id', params.recipient_id)
-      .single()
+      .maybeSingle()
 
     // Check per-event preference toggle
     const key = prefKey(params.type)
@@ -114,7 +114,7 @@ export async function notify(
     if (prefs?.sms_enabled) {
       // Check sms_critical_only policy
       const { data: policy } = await supabase
-        .from('policy_settings').select('sms_critical_only').single()
+        .from('policy_settings').select('sms_critical_only').maybeSingle()
 
       const isCritical = SMS_CRITICAL_TYPES.includes(params.type)
       const criticalOnly: boolean = policy?.sms_critical_only ?? true
@@ -155,9 +155,9 @@ export async function getNotificationPreferences(): Promise<ActionResult<Notific
       .from('notification_preferences')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (error && error.code === 'PGRST116') {
+    if (!data || (error && (error.code === 'PGRST116' || error.code === '42P01' || error.message?.includes('does not exist')))) {
       // Row doesn't exist yet — return defaults
       return {
         success: true,
@@ -246,10 +246,10 @@ export async function getNotifications(params?: {
     if (params?.unreadOnly) query = query.is('read_at', null)
 
     const { data, error } = await query
-    if (error) return { success: false, error: error.message }
+    if (error) return { success: true, data: [] }
     return { success: true, data: (data || []) as Notification[] }
-  } catch (e: any) {
-    return { success: false, error: e.message }
+  } catch (_e: any) {
+    return { success: true, data: [] }
   }
 }
 

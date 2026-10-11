@@ -17,5 +17,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!profile) redirect('/auth/login')
   if (profile.role !== 'admin') redirect(`/dashboard/${profile.role}`)
 
-  return <DashboardLayout profile={profile}>{children}</DashboardLayout>
+  return <DashboardLayout profile={{ ...profile, is_active: (profile as any).is_active !== false }}>{children}</DashboardLayout>
 }

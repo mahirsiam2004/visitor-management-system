@@ -17,5 +17,5 @@ export default async function SecurityLayout({ children }: { children: React.Rea
   if (!profile) redirect('/auth/login')
   if (!['security', 'admin'].includes(profile.role)) redirect('/dashboard/resident')
 
-  return <DashboardLayout profile={profile}>{children}</DashboardLayout>
+  return <DashboardLayout profile={{ ...profile, is_active: (profile as any).is_active !== false }}>{children}</DashboardLayout>
 }

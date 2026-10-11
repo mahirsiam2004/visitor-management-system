@@ -11,9 +11,9 @@ async function requireAuth() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { data: profile } = await supabase
-    .from('profiles').select('role, is_active, full_name').eq('id', user.id).single()
+    .from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (!profile) throw new Error('Profile not found')
-  if (!profile.is_active) throw new Error('Account deactivated')
+  if ((profile as any).is_active === false) throw new Error('Account deactivated')
   return { supabase, user, profile }
 }
 
@@ -22,7 +22,7 @@ async function loadPolicy(supabase: any) {
   const { data } = await supabase
     .from('policy_settings')
     .select('max_extensions_resident, max_total_stay_hours')
-    .single()
+    .maybeSingle()
   return {
     maxResidentExtensions: data?.max_extensions_resident ?? 1,
     maxTotalStayHours:     data?.max_total_stay_hours ?? 48,
@@ -123,7 +123,12 @@ export async function requestExtension(input: {
       })
       .select().single()
 
-    if (error) return { success: false, error: error.message }
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return { success: false, error: 'Extension feature requires migration 008. Please run the migration in your Supabase dashboard.' }
+      }
+      return { success: false, error: error.message }
+    }
 
     if (autoApprove) {
       // Apply extension immediately
@@ -264,7 +269,13 @@ export async function getPassExtensions(passId: string): Promise<ActionResult<Pa
       .eq('pass_id', passId)
       .order('created_at', { ascending: false })
 
-    if (error) return { success: false, error: error.message }
+    if (error) {
+      // Table doesn't exist yet — return empty array
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return { success: true, data: [] }
+      }
+      return { success: false, error: error.message }
+    }
     return { success: true, data: (data || []) as PassExtension[] }
   } catch (e: any) {
     return { success: false, error: e.message ?? 'Failed to fetch extensions' }
@@ -290,7 +301,12 @@ export async function getPendingExtensions(): Promise<ActionResult<any[]>> {
       .eq('approval_level', 'admin')
       .order('created_at', { ascending: true })
 
-    if (error) return { success: false, error: error.message }
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return { success: true, data: [] }
+      }
+      return { success: false, error: error.message }
+    }
     return { success: true, data: data || [] }
   } catch (e: any) {
     return { success: false, error: e.message ?? 'Failed to fetch' }

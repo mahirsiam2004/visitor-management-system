@@ -187,7 +187,13 @@ export async function getProfile(): Promise<ActionResult<Profile>> {
 
     if (error) return { success: false, error: error.message }
 
-    return { success: true, data }
+    return {
+      success: true,
+      data: {
+        ...data,
+        is_active: (data as any).is_active !== false,
+      },
+    }
   } catch (error: unknown) {
     if (error instanceof Error) {
       return { success: false, error: error.message }

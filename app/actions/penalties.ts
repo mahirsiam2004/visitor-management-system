@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { ActionResult, Penalty, PaginatedResult } from '@/types'
 import { writeAuditLog } from './audit'
-import { downloadCSV } from '@/lib/utils'
 import { PAGE_SIZE } from '@/constants'
 
 async function requireAuth() {
@@ -12,10 +11,24 @@ async function requireAuth() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { data: profile } = await supabase
-    .from('profiles').select('role, is_active').eq('id', user.id).single()
+    .from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (!profile) throw new Error('Profile not found')
-  if (!profile.is_active) throw new Error('Account deactivated')
+  if ((profile as any).is_active === false) throw new Error('Account deactivated')
   return { supabase, user, profile }
+}
+
+/** Return empty paginated result when a table doesn't exist yet */
+function emptyPage<T>(page: number, pageSize: number): PaginatedResult<T> {
+  return { data: [], total: 0, page, pageSize, totalPages: 0 }
+}
+
+function isTableMissing(error: any): boolean {
+  return (
+    error?.code === '42P01' ||
+    error?.message?.includes('does not exist') ||
+    error?.message?.includes('relation') ||
+    error?.message?.includes('undefined')
+  )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -34,11 +47,7 @@ export async function getMyPenalties(params?: {
 
     let query = supabase
       .from('penalties')
-      .select(`
-        *,
-        pass:pass_id(guest_name, purpose),
-        waiver:waived_by(full_name)
-      `, { count: 'exact' })
+      .select(`*, pass:pass_id(guest_name, purpose), waiver:waived_by(full_name)`, { count: 'exact' })
       .eq('resident_id', user.id)
       .order('created_at', { ascending: false })
       .range(from, to)
@@ -47,15 +56,15 @@ export async function getMyPenalties(params?: {
     if (params?.monthYear) query = query.eq('month_year', params.monthYear)
 
     const { data, error, count } = await query
-    if (error) return { success: false, error: error.message }
+
+    if (error) {
+      if (isTableMissing(error)) return { success: true, data: emptyPage(page, pageSize) }
+      return { success: false, error: error.message }
+    }
 
     return {
       success: true,
-      data: {
-        data: (data || []) as Penalty[],
-        total: count || 0, page, pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
+      data: { data: (data || []) as Penalty[], total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) },
     }
   } catch (e: any) {
     return { success: false, error: e.message ?? 'Failed to fetch penalties' }
@@ -79,12 +88,7 @@ export async function getAllPenalties(params?: {
 
     let query = supabase
       .from('penalties')
-      .select(`
-        *,
-        resident:resident_id(full_name, apartment_number, email),
-        pass:pass_id(guest_name, purpose),
-        waiver:waived_by(full_name)
-      `, { count: 'exact' })
+      .select(`*, resident:resident_id(full_name, apartment_number, email), pass:pass_id(guest_name, purpose), waiver:waived_by(full_name)`, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -93,15 +97,14 @@ export async function getAllPenalties(params?: {
     if (params?.residentId) query = query.eq('resident_id', params.residentId)
 
     const { data, error, count } = await query
-    if (error) return { success: false, error: error.message }
+    if (error) {
+      if (isTableMissing(error)) return { success: true, data: emptyPage(page, pageSize) }
+      return { success: false, error: error.message }
+    }
 
     return {
       success: true,
-      data: {
-        data: data || [],
-        total: count || 0, page, pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize),
-      },
+      data: { data: data || [], total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) },
     }
   } catch (e: any) {
     return { success: false, error: e.message ?? 'Failed to fetch penalties' }
@@ -109,7 +112,7 @@ export async function getAllPenalties(params?: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// WAIVE PENALTY (admin — mandatory reason, audit logged)
+// WAIVE PENALTY (admin)
 // ═══════════════════════════════════════════════════════════════════════════
 export async function waivePenalty(penaltyId: string, reason: string): Promise<ActionResult> {
   try {
@@ -118,16 +121,15 @@ export async function waivePenalty(penaltyId: string, reason: string): Promise<A
     if (!reason.trim()) return { success: false, error: 'A reason is required to waive a penalty' }
 
     const { data: penalty } = await supabase
-      .from('penalties').select('status, resident_id, amount_bdt').eq('id', penaltyId).single()
+      .from('penalties').select('status, resident_id, amount_bdt').eq('id', penaltyId).maybeSingle()
     if (!penalty) return { success: false, error: 'Penalty not found' }
     if (penalty.status === 'waived') return { success: false, error: 'Already waived' }
 
-    const now = new Date().toISOString()
     const { error } = await supabase.from('penalties').update({
-      status:      'waived',
-      waived_by:   user.id,
+      status:       'waived',
+      waived_by:    user.id,
       waive_reason: reason.trim(),
-      waived_at:   now,
+      waived_at:    new Date().toISOString(),
     }).eq('id', penaltyId)
 
     if (error) return { success: false, error: error.message }
@@ -146,7 +148,7 @@ export async function waivePenalty(penaltyId: string, reason: string): Promise<A
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MARK PENALTIES AS ADDED TO BILL (admin — bulk by month)
+// MARK PENALTIES AS ADDED TO BILL
 // ═══════════════════════════════════════════════════════════════════════════
 export async function markMonthBilled(monthYear: string): Promise<ActionResult<{ count: number }>> {
   try {
@@ -176,7 +178,7 @@ export async function markMonthBilled(monthYear: string): Promise<ActionResult<{
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EXPORT MONTHLY PENALTY REPORT (admin)
+// EXPORT MONTHLY PENALTY REPORT
 // ═══════════════════════════════════════════════════════════════════════════
 export async function exportMonthlyPenaltyReport(monthYear: string): Promise<ActionResult<any[]>> {
   try {
@@ -195,23 +197,26 @@ export async function exportMonthlyPenaltyReport(monthYear: string): Promise<Act
       .eq('month_year', monthYear)
       .order('created_at', { ascending: true })
 
-    if (error) return { success: false, error: error.message }
+    if (error) {
+      if (isTableMissing(error)) return { success: true, data: [] }
+      return { success: false, error: error.message }
+    }
 
     const rows = (data || []).map((p: any) => ({
-      'Month':           p.month_year,
-      'Resident Name':   p.resident?.full_name ?? '',
-      'Apartment':       p.resident?.apartment_number ?? '',
-      'Email':           p.resident?.email ?? '',
-      'Phone':           p.resident?.phone_number ?? '',
-      'Guest Name':      p.pass?.guest_name ?? '',
-      'Purpose':         p.pass?.purpose ?? '',
-      'Minutes Over':    p.minutes_over,
-      'Amount (BDT)':    p.amount_bdt,
-      'Status':          p.status,
-      'Waive Reason':    p.waive_reason ?? '',
-      'Waived By':       p.waiver?.full_name ?? '',
-      'Waived At':       p.waived_at ?? '',
-      'Created At':      p.created_at,
+      'Month':         p.month_year,
+      'Resident Name': p.resident?.full_name ?? '',
+      'Apartment':     p.resident?.apartment_number ?? '',
+      'Email':         p.resident?.email ?? '',
+      'Phone':         p.resident?.phone_number ?? '',
+      'Guest Name':    p.pass?.guest_name ?? '',
+      'Purpose':       p.pass?.purpose ?? '',
+      'Minutes Over':  p.minutes_over,
+      'Amount (BDT)':  p.amount_bdt,
+      'Status':        p.status,
+      'Waive Reason':  p.waive_reason ?? '',
+      'Waived By':     p.waiver?.full_name ?? '',
+      'Waived At':     p.waived_at ?? '',
+      'Created At':    p.created_at,
     }))
 
     await writeAuditLog({
@@ -227,7 +232,7 @@ export async function exportMonthlyPenaltyReport(monthYear: string): Promise<Act
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET MONTHLY SUMMARY (totals by apartment for dashboard)
+// GET MONTHLY SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════
 export async function getMonthlySummary(monthYear?: string): Promise<ActionResult<any[]>> {
   try {
@@ -238,40 +243,28 @@ export async function getMonthlySummary(monthYear?: string): Promise<ActionResul
 
     const { data, error } = await supabase
       .from('penalties')
-      .select(`
-        amount_bdt, status, minutes_over,
-        resident:resident_id(full_name, apartment_number)
-      `)
+      .select('amount_bdt, status, minutes_over, resident:resident_id(full_name, apartment_number)')
       .eq('month_year', targetMonth)
 
-    if (error) return { success: false, error: error.message }
+    if (error) {
+      if (isTableMissing(error)) return { success: true, data: [] }
+      return { success: false, error: error.message }
+    }
 
-    // Aggregate by apartment
     const summary: Record<string, any> = {}
     ;(data || []).forEach((p: any) => {
       const apt = p.resident?.apartment_number ?? 'Unknown'
       if (!summary[apt]) {
-        summary[apt] = {
-          apartment: apt,
-          resident_name: p.resident?.full_name ?? '',
-          total_bdt: 0,
-          total_minutes: 0,
-          pending_count: 0,
-          waived_count: 0,
-          billed_count: 0,
-        }
+        summary[apt] = { apartment: apt, resident_name: p.resident?.full_name ?? '', total_bdt: 0, total_minutes: 0, pending_count: 0, waived_count: 0, billed_count: 0 }
       }
       summary[apt].total_bdt     += Number(p.amount_bdt)
       summary[apt].total_minutes += p.minutes_over
-      if (p.status === 'pending')       summary[apt].pending_count++
-      else if (p.status === 'waived')   summary[apt].waived_count++
+      if (p.status === 'pending')            summary[apt].pending_count++
+      else if (p.status === 'waived')        summary[apt].waived_count++
       else if (p.status === 'added_to_bill') summary[apt].billed_count++
     })
 
-    return {
-      success: true,
-      data: Object.values(summary).sort((a: any, b: any) => b.total_bdt - a.total_bdt),
-    }
+    return { success: true, data: Object.values(summary).sort((a: any, b: any) => b.total_bdt - a.total_bdt) }
   } catch (e: any) {
     return { success: false, error: e.message ?? 'Failed' }
   }

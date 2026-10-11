@@ -22,11 +22,10 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, is_active')
+    .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (profile?.is_active === false) throw new Error('Your account has been deactivated')
   if (profile?.role !== 'admin') throw new Error('Admin access required')
   return { supabase, user, profile }
 }
@@ -47,23 +46,17 @@ export async function getAdminStats(): Promise<ActionResult<AdminStats>> {
       { count: activePasses },
       { count: expiredPasses },
       { count: revokedPasses },
-      { count: usedPasses },
       { count: activeGuests },
       { count: completedVisits },
-      { count: overstayCount },
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'resident').eq('is_active', true),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'security').eq('is_active', true),
-      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).is('archived_at', null),
-      // Active = stored 'valid' AND expiry_time in the future
-      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'valid').gt('expiry_time', now).is('archived_at', null),
-      // Expired = stored 'expired' OR (stored 'valid' AND past expiry)
-      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).or(`status.eq.expired,and(status.eq.valid,expiry_time.lt.${now})`).is('archived_at', null),
-      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'revoked').is('archived_at', null),
-      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'used').is('archived_at', null),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'resident'),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'security'),
+      supabase.from('guest_passes').select('*', { count: 'exact', head: true }),
+      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'valid').gt('expiry_time', now),
+      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).or(`status.eq.expired,and(status.eq.valid,expiry_time.lt.${now})`),
+      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'revoked'),
       supabase.from('entry_logs').select('*', { count: 'exact', head: true }).eq('status', 'inside'),
       supabase.from('entry_logs').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
-      supabase.from('entry_logs').select('*', { count: 'exact', head: true }).eq('status', 'overstay'),
     ])
 
     return {
@@ -110,7 +103,6 @@ export async function getAllProfiles(params?: {
       .order('created_at', { ascending: false })
       .range(from, to)
 
-    if (!params?.includeInactive) query = query.eq('is_active', true)
     if (params?.role) query = query.eq('role', params.role)
     if (params?.search) {
       query = query.or(
@@ -158,7 +150,6 @@ export async function updateUserRole(
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('role', 'admin')
-        .eq('is_active', true)
 
       if ((adminCount || 0) <= 1) {
         const { data: target } = await supabase
@@ -541,7 +532,7 @@ export async function exportGuestPassesCSV(): Promise<ActionResult<any[]>> {
       .select(`
         guest_id, guest_name, guest_phone, apartment_number,
         visit_date, visit_time, duration_hours, purpose, status,
-        expiry_time, archived_at, archive_reason, created_at,
+        expiry_time, created_at,
         resident:resident_id ( full_name, email )
       `)
       .order('created_at', { ascending: false })
@@ -589,7 +580,7 @@ export async function exportEntryLogsCSV(): Promise<ActionResult<any[]>> {
     const { data, error } = await supabase
       .from('entry_logs')
       .select(`
-        entry_time, exit_time, expected_exit_at, status, checkout_type, notes,
+        entry_time, exit_time, status, notes,
         guest_pass:guest_pass_id ( guest_name, guest_id, apartment_number, purpose ),
         security_guard:security_guard_id ( full_name )
       `)

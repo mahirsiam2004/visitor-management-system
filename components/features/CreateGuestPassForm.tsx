@@ -225,7 +225,7 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
   const allowedPersons = watch('allowedPersons') ?? 1
   const maxCompanions  = Math.max(0, (allowedPersons as number) - 1)
 
-  // ── Guest photo upload to Supabase Storage ────────────────────────────
+  // ── Guest photo upload to ImgBB ───────────────────────────────────────
   const handlePhotoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -233,18 +233,19 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
 
     setPhotoUploading(true)
     try {
-      const supabase = createClient()
-      const ext  = file.name.split('.').pop()
-      const path = `guest-photos/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('guest-photos')
-        .upload(path, file, { cacheControl: '3600', upsert: false })
+      const formData = new FormData()
+      formData.append('image', file)
 
-      if (uploadError) throw uploadError
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const result = await res.json()
 
-      const { data: { publicUrl } } = supabase.storage.from('guest-photos').getPublicUrl(path)
-      setPhotoUrl(publicUrl)
-      toast.success('Photo uploaded')
+      if (!result.success) throw new Error(result.error || 'Upload failed')
+
+      setPhotoUrl(result.displayUrl || result.url)
+      toast.success('Photo uploaded via ImgBB')
     } catch (err: any) {
       toast.error(err?.message ?? 'Upload failed')
     } finally {
@@ -263,8 +264,8 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
       } else {
         toast.error(result.error)
       }
-    } catch {
-      toast.error('Failed to create guest pass')
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create guest pass')
     } finally {
       setLoading(false)
     }
