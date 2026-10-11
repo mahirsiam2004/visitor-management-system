@@ -89,6 +89,47 @@ export const ENTRY_STATUS_COLORS: Record<string, string> = {
 }
 
 export const OVERSTAY_GRACE_MINUTES = 15
+export const VALID_FROM_BUFFER_MINUTES = 30   // pass opens 30 min before visit_time
+export const GATE_CODE_EXPIRY_MINUTES  = 0    // gate_code expires when pass expires
+export const RATE_LIMIT_MAX_ATTEMPTS   = 10   // per guard per minute
+export const RATE_LIMIT_WINDOW_SECONDS = 60
+export const RATE_LIMIT_LOCKOUT_MINUTES = 5
+
+export const ID_TYPE_LABELS: Record<string, string> = {
+  nid:               'National ID (NID)',
+  driving_license:   'Driving License',
+  student_id:        'Student ID',
+  known_to_resident: 'Known to Resident',
+  none:              'No ID shown',
+}
+
+export const RELATION_OPTIONS = [
+  'Parent',
+  'Sibling',
+  'Spouse / Partner',
+  'Child',
+  'Relative',
+  'Friend',
+  'Colleague',
+  'Househelp',
+  'Other',
+] as const
+
+export const ACCESS_ATTEMPT_LABELS: Record<string, string> = {
+  invalid:           'Invalid token',
+  expired:           'Pass expired',
+  revoked:           'Pass revoked',
+  limit_exceeded:    'Visitor limit exceeded',
+  too_early:         'Too early',
+  outside_schedule:  'Outside schedule',
+  already_inside:    'Already inside',
+  rate_limited:      'Rate limited',
+  pass_not_found:    'Pass not found',
+  archived:          'Pass archived',
+  used:              'Pass already used',
+}
+
+export const BUILDING_ADDRESS = 'SecureEntry Residential Complex, Dhaka, Bangladesh'
 
 export const ROLE_COLORS: Record<string, string> = {
   resident: 'bg-blue-50 text-blue-700 border-blue-200',

@@ -150,3 +150,40 @@ export function normalizeBdPhone(raw: string): string {
   if (digits.startsWith('01') && digits.length === 11) return `+88${digits}`
   return `+${digits}`
 }
+
+/**
+ * Generate a cryptographically random 6-digit gate code.
+ * Uses crypto.getRandomValues for ≥20 bits of entropy.
+ */
+export function generateGateCode(): string {
+  // Produce a number in [100000, 999999]
+  const array = new Uint32Array(1)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(array)
+  } else {
+    // Fallback for non-browser environments (Node.js)
+    const { randomBytes } = require('crypto') as typeof import('crypto')
+    array[0] = randomBytes(4).readUInt32BE(0)
+  }
+  return String(100000 + (array[0] % 900000))
+}
+
+/**
+ * Calculate the valid_from time: visit_time in Dhaka minus bufferMinutes.
+ * Returns a UTC Date.
+ */
+export function calculateValidFrom(
+  visitDate: string,
+  visitTime: string,
+  bufferMinutes: number = 30
+): Date {
+  const localIso = `${visitDate}T${visitTime}:00+06:00`
+  const visitUTC = new Date(localIso)
+  return new Date(visitUTC.getTime() - bufferMinutes * 60 * 1000)
+}
+
+/** Build the public pass share URL */
+export function buildPassUrl(token: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  return `${baseUrl}/pass/${token}`
+}
