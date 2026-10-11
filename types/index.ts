@@ -11,21 +11,12 @@ export type CheckoutType   = 'manual' | 'auto_closed' | 'admin_closed'
 
 // ─── Visitor types ────────────────────────────────────────────────────────
 export type VisitorType =
-  | 'one_time'
-  | 'recurring'
-  | 'delivery'
-  | 'minor_family'
-  | 'event'
-  | 'walk_in'
-  | 'emergency'
+  | 'one_time' | 'recurring' | 'delivery' | 'minor_family'
+  | 'event' | 'walk_in' | 'emergency'
 
 // ─── Identity ─────────────────────────────────────────────────────────────
 export type IdType =
-  | 'nid'
-  | 'driving_license'
-  | 'student_id'
-  | 'known_to_resident'
-  | 'none'
+  | 'nid' | 'driving_license' | 'student_id' | 'known_to_resident' | 'none'
 
 // ─── Visit request ────────────────────────────────────────────────────────
 export type VisitRequestType   = 'delivery' | 'walk_in' | 'emergency'
@@ -36,10 +27,18 @@ export type VisitRequestStatus =
 export type RecurringVisitorStatus = 'active' | 'suspended' | 'blacklisted'
 
 // ─── Event ────────────────────────────────────────────────────────────────
-export type EventType   = 'wedding' | 'birthday' | 'puja' | 'eid_gathering' | 'corporate' | 'other'
-export type EventStatus = 'upcoming' | 'active' | 'completed' | 'cancelled'
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'not_required'
+export type EventType        = 'wedding' | 'birthday' | 'puja' | 'eid_gathering' | 'corporate' | 'other'
+export type EventStatus      = 'upcoming' | 'active' | 'completed' | 'cancelled'
+export type ApprovalStatus   = 'pending' | 'approved' | 'rejected' | 'not_required'
 export type EventGuestStatus = 'invited' | 'arrived' | 'no_show'
+
+// ─── Extension ────────────────────────────────────────────────────────────
+export type ExtensionStatus   = 'pending' | 'approved' | 'rejected'
+export type ExtensionApprovalLevel = 'resident' | 'admin'
+export type ExtendHours       = 1 | 2 | 4 | 24
+
+// ─── Penalty ──────────────────────────────────────────────────────────────
+export type PenaltyStatus = 'pending' | 'waived' | 'added_to_bill'
 
 // ─── Access attempt ───────────────────────────────────────────────────────
 export type AccessAttemptResult =
@@ -48,7 +47,13 @@ export type AccessAttemptResult =
   | 'rate_limited' | 'pass_not_found' | 'archived' | 'used'
 
 // ─── Notification ─────────────────────────────────────────────────────────
-export type NotificationType = 'checkin' | 'overstay' | 'revoked' | 'system' | 'delivery' | 'walk_in' | 'event' | 'emergency'
+export type NotificationType =
+  | 'checkin' | 'checkout' | 'overstay' | 'ending_soon' | 'revoked'
+  | 'system' | 'delivery' | 'walk_in' | 'event' | 'emergency'
+  | 'extension_request' | 'extension_approved' | 'extension_rejected'
+  | 'penalty_created' | 'penalty_waived'
+
+export type NotificationChannel = 'inapp' | 'push' | 'sms'
 
 // ─── Audit ────────────────────────────────────────────────────────────────
 export type AuditAction =
@@ -60,6 +65,8 @@ export type AuditAction =
   | 'visit_request.created' | 'visit_request.approved' | 'visit_request.rejected'
   | 'event.created' | 'event.approved' | 'event.checkin' | 'event.rejected'
   | 'emergency.entry' | 'blacklist.added' | 'blacklist.removed'
+  | 'extension.requested' | 'extension.approved' | 'extension.rejected'
+  | 'penalty.created' | 'penalty.waived' | 'penalty.bill_added'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────
 
@@ -76,6 +83,84 @@ export interface Profile {
   deactivation_reason: string | null
   delivery_auto_allow_until: string | null
   created_at: string
+  updated_at: string
+}
+
+export interface PolicySettings {
+  id: string
+  overstay_grace_minutes: number
+  overstay_penalty_rate_bdt: number
+  overstay_notify_admin_after_minutes: number
+  ending_soon_warn_minutes: number
+  max_pass_duration_hours: number
+  max_extensions_resident: number
+  max_total_stay_hours: number
+  delivery_reply_minutes: number
+  delivery_access_window_min: number
+  walk_in_reply_minutes: number
+  event_approval_threshold: number
+  max_sms_per_resident_per_day: number
+  sms_critical_only: boolean
+  photo_retention_days: number
+  penalty_enabled: boolean
+  updated_by: string | null
+  updated_at: string
+}
+
+export interface PassExtension {
+  id: string
+  pass_id: string
+  entry_log_id: string | null
+  old_expiry: string
+  new_expiry: string
+  extend_hours: ExtendHours
+  status: ExtensionStatus
+  requested_by: string
+  approved_by: string | null
+  approval_level: ExtensionApprovalLevel
+  reason: string | null
+  resolved_at: string | null
+  was_overstay: boolean
+  created_at: string
+}
+
+export interface Penalty {
+  id: string
+  resident_id: string
+  entry_log_id: string | null
+  pass_id: string | null
+  minutes_over: number
+  amount_bdt: number
+  status: PenaltyStatus
+  waived_by: string | null
+  waive_reason: string | null
+  waived_at: string | null
+  month_year: string      // 'YYYY-MM'
+  created_at: string
+  updated_at: string
+}
+
+export interface NotificationPreferences {
+  user_id: string
+  inapp_enabled: boolean
+  push_enabled: boolean
+  push_endpoint: string | null
+  push_p256dh: string | null
+  push_auth: string | null
+  sms_enabled: boolean
+  notify_checkin: boolean
+  notify_checkout: boolean
+  notify_overstay: boolean
+  notify_ending_soon: boolean
+  notify_delivery: boolean
+  notify_walk_in: boolean
+  notify_extension: boolean
+  notify_penalty: boolean
+  notify_revoked: boolean
+  notify_event: boolean
+  notify_emergency: boolean
+  sms_sent_today: number
+  sms_last_reset_date: string | null
   updated_at: string
 }
 
@@ -153,12 +238,10 @@ export interface EntryLogWithDetails extends EntryLog {
   security_guard: Pick<Profile, 'id' | 'full_name'>
 }
 
-// ── Recurring visitor ─────────────────────────────────────────────────────
-
 export interface RecurringVisitorSchedule {
-  days: string[]            // ['Mon','Tue','Wed','Thu','Fri']
-  start: string             // 'HH:MM'
-  end: string               // 'HH:MM'
+  days: string[]
+  start: string
+  end: string
 }
 
 export interface RecurringVisitorApartment {
@@ -183,11 +266,8 @@ export interface RecurringVisitor {
   added_by: string
   created_at: string
   updated_at: string
-  // joined
   apartments?: RecurringVisitorApartment[]
 }
-
-// ── Visit request ─────────────────────────────────────────────────────────
 
 export interface VisitRequest {
   id: string
@@ -211,8 +291,6 @@ export interface VisitRequest {
   created_at: string
   updated_at: string
 }
-
-// ── Event ─────────────────────────────────────────────────────────────────
 
 export interface Event {
   id: string
@@ -258,8 +336,6 @@ export interface EventCoordinator {
   created_at: string
 }
 
-// ── Blacklist ─────────────────────────────────────────────────────────────
-
 export interface BlacklistEntry {
   id: string
   name: string
@@ -274,8 +350,6 @@ export interface BlacklistEntry {
   updated_at: string
 }
 
-// ── Notifications ─────────────────────────────────────────────────────────
-
 export interface Notification {
   id: string
   recipient_id: string
@@ -287,8 +361,6 @@ export interface Notification {
   created_at: string
 }
 
-// ── Access attempts ───────────────────────────────────────────────────────
-
 export interface AccessAttempt {
   id: string
   token_used: string | null
@@ -298,8 +370,6 @@ export interface AccessAttempt {
   ip_address: string | null
   created_at: string
 }
-
-// ── Audit ─────────────────────────────────────────────────────────────────
 
 export interface AuditLog {
   id: string
@@ -312,8 +382,6 @@ export interface AuditLog {
   ip_address: string | null
   created_at: string
 }
-
-// ── Dashboard ─────────────────────────────────────────────────────────────
 
 export interface DashboardStats {
   totalGuests: number
@@ -336,8 +404,6 @@ export interface AdminStats {
   usedPasses: number
   overstayCount: number
 }
-
-// ── Search / QR ───────────────────────────────────────────────────────────
 
 export interface QRScanResult { token: string }
 
@@ -379,8 +445,6 @@ export interface GuestSearchResult {
   resident_phone: string | null
 }
 
-// ── Pagination ────────────────────────────────────────────────────────────
-
 export interface PaginationParams   { page: number; pageSize: number }
 export interface PaginatedResult<T> {
   data: T[]
@@ -392,8 +456,6 @@ export interface PaginatedResult<T> {
 export interface FilterParams {
   search?: string; status?: string; role?: string; dateFrom?: string; dateTo?: string
 }
-
-// ── Analytics ─────────────────────────────────────────────────────────────
 
 export interface AnalyticsData {
   passesPerDay: { date: string; count: number; isoDate: string }[]

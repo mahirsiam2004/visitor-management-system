@@ -12,30 +12,14 @@ import { Button } from '@/components/ui/button'
 import Logo from '@/components/ui/Logo'
 import type { Profile, UserRole } from '@/types'
 import {
-  LayoutDashboard,
-  Plus,
-  History,
-  User,
-  Settings,
-  LogOut,
-  Shield,
-  Users,
-  ClipboardList,
-  BarChart3,
-  Scan,
-  QrCode,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  Menu,
-  X,
-  ShieldCheck,
-  RefreshCcw,
-  CalendarDays,
-  AlertTriangle,
-  Zap,
-  ShieldOff,
+  LayoutDashboard, Plus, History, User, Settings,
+  LogOut, Shield, Users, ClipboardList, BarChart3,
+  Scan, QrCode, Building2, ChevronLeft, ChevronRight,
+  Menu, X, ShieldCheck, RefreshCcw, CalendarDays,
+  AlertTriangle, Zap, ShieldOff, PlusCircle, TrendingDown,
+  SlidersHorizontal,
 } from 'lucide-react'
+import NotificationBell from '@/components/features/NotificationBell'
 
 interface NavItem {
   label: string
@@ -49,6 +33,7 @@ const residentNav: NavItem[] = [
   { label: 'Guest History',     href: '/dashboard/resident/history',      icon: History },
   { label: 'My Staff',          href: '/dashboard/resident/staff',        icon: RefreshCcw },
   { label: 'My Events',         href: '/dashboard/resident/events',       icon: CalendarDays },
+  { label: 'My Penalties',      href: '/dashboard/resident/penalties',    icon: TrendingDown },
   { label: 'Profile',           href: '/dashboard/resident/profile',      icon: User },
   { label: 'Settings',          href: '/dashboard/resident/settings',     icon: Settings },
 ]
@@ -68,7 +53,10 @@ const adminNav: NavItem[] = [
   { label: 'Guest Passes',      href: '/dashboard/admin/guest-passes',  icon: QrCode },
   { label: 'Entry Logs',        href: '/dashboard/admin/entry-logs',    icon: ClipboardList },
   { label: 'Event Approvals',   href: '/dashboard/admin/events',        icon: CalendarDays },
+  { label: 'Extensions',        href: '/dashboard/admin/extensions',    icon: PlusCircle },
+  { label: 'Penalties',         href: '/dashboard/admin/penalties',     icon: TrendingDown },
   { label: 'Blacklist',         href: '/dashboard/admin/blacklist',     icon: ShieldOff },
+  { label: 'Policy Settings',   href: '/dashboard/admin/policy',        icon: SlidersHorizontal },
   { label: 'Analytics',         href: '/dashboard/admin/analytics',     icon: BarChart3 },
 ]
 
@@ -281,6 +269,9 @@ export default function DashboardLayout({ children, profile }: DashboardLayoutPr
             <div className="h-2 w-2 rounded-full bg-emerald-500" />
             <span>System Online</span>
           </div>
+
+          {/* Notification bell */}
+          <NotificationBell userId={profile.id} />
 
           {/* Apartment badge (residents) */}
           {role === 'resident' && profile.apartment_number && (

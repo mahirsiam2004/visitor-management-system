@@ -1,0 +1,96 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "yes": "Yes",
+    "no": "No",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "close": "Close",
+    "submit": "Submit",
+    "required": "Required",
+    "optional": "Optional",
+    "error": "Error",
+    "success": "Success",
+    "offline": "You are offline",
+    "offlineMsg": "No internet connection. Check-ins will be queued and synced when back online.",
+    "syncing": "Syncing offline entries…",
+    "syncDone": "All entries synced"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "scanner": "QR Scanner",
+    "quickEntry": "Quick Entry",
+    "visitors": "Today's Visitors",
+    "logs": "Entry Logs"
+  },
+  "entry": {
+    "title": "Quick Entry",
+    "subtitle": "Select visitor type",
+    "guest": "Guest",
+    "guestSub": "Scan QR or enter code",
+    "staff": "Staff",
+    "staffSub": "Maid, driver, cook…",
+    "delivery": "Delivery",
+    "deliverySub": "Foodpanda, Daraz…",
+    "walkin": "Walk-in",
+    "walkinSub": "Unregistered visitor",
+    "event": "Event",
+    "eventSub": "Wedding, party…",
+    "emergency": "Emergency",
+    "emergencySub": "Doctor, ambulance…"
+  },
+  "delivery": {
+    "title": "Delivery Entry",
+    "platform": "Platform",
+    "riderName": "Rider Name",
+    "riderPhone": "Rider Phone",
+    "apartment": "Apartment",
+    "notify": "Notify Resident",
+    "waiting": "Waiting for resident…",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "leaveAtGate": "Leave at Gate",
+    "timeout": "No Response — Leave at Gate",
+    "allowEntry": "Allow Entry"
+  },
+  "walkin": {
+    "title": "Walk-in Entry",
+    "visitorName": "Visitor Name",
+    "visitorPhone": "Phone (optional)",
+    "purpose": "Purpose",
+    "approved": "Resident Approved",
+    "rejected": "Rejected",
+    "timedOut": "Timed Out",
+    "verify": "Verify Identity"
+  },
+  "recurring": {
+    "title": "Staff Entry",
+    "searchPlaceholder": "Name, RV-XXXX, or phone…",
+    "scheduleWarning": "Outside Schedule",
+    "override": "Override & Allow",
+    "checkedIn": "Checked In"
+  },
+  "emergency": {
+    "title": "Emergency Entry",
+    "warning": "This entry is logged and residents will be notified immediately.",
+    "type": "Emergency Type",
+    "name": "Person's Name",
+    "apartment": "Destination Apartment",
+    "notes": "Notes",
+    "allow": "ALLOW EMERGENCY ENTRY",
+    "logged": "Entry Logged"
+  },
+  "identity": {
+    "title": "ID Verification",
+    "nid": "National ID (NID)",
+    "driving_license": "Driving License",
+    "student_id": "Student ID",
+    "known_to_resident": "Known to Resident",
+    "none": "No ID shown"
+  }
+}

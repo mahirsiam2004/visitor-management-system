@@ -93,7 +93,43 @@ export const ENTRY_STATUS_COLORS: Record<string, string> = {
   overstay: 'bg-red-50 text-red-700 border-red-200',
 }
 
-export const OVERSTAY_GRACE_MINUTES = 15
+export const OVERSTAY_GRACE_MINUTES      = 15   // default; real value comes from policy_settings
+export const ENDING_SOON_WARN_MINUTES    = 10   // warn resident N min before expiry
+export const MAX_EXTENSIONS_RESIDENT     = 1    // >=2 requires admin approval
+export const MAX_TOTAL_STAY_HOURS        = 48   // hard ceiling
+
+export const EXTENSION_HOUR_OPTIONS: { value: number; label: string }[] = [
+  { value: 1,  label: '+1 Hour' },
+  { value: 2,  label: '+2 Hours' },
+  { value: 4,  label: '+4 Hours' },
+  { value: 24, label: '+24 Hours' },
+]
+
+export const PENALTY_STATUS_LABELS: Record<string, string> = {
+  pending:      'Pending',
+  waived:       'Waived',
+  added_to_bill: 'Added to Bill',
+}
+
+export const EXTENSION_STATUS_LABELS: Record<string, string> = {
+  pending:  'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
+}
+
+export const NOTIFY_EVENT_LABELS: Record<string, string> = {
+  notify_checkin:     'Guest checked in',
+  notify_checkout:    'Guest checked out',
+  notify_overstay:    'Guest overstaying',
+  notify_ending_soon: 'Pass ending soon (10 min)',
+  notify_delivery:    'Delivery at gate',
+  notify_walk_in:     'Unregistered visitor',
+  notify_extension:   'Extension requested/approved',
+  notify_penalty:     'Penalty created',
+  notify_revoked:     'Pass revoked alert',
+  notify_event:       'Event updates',
+  notify_emergency:   'Emergency entry',
+}
 export const VALID_FROM_BUFFER_MINUTES = 30   // pass opens 30 min before visit_time
 export const GATE_CODE_EXPIRY_MINUTES  = 0    // gate_code expires when pass expires
 export const RATE_LIMIT_MAX_ATTEMPTS   = 10   // per guard per minute

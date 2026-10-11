@@ -1,13 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Scan, Users, CheckCircle, Clock, AlertTriangle, Phone, ArrowRight, LogOut } from 'lucide-react'
+import { Scan, Users, CheckCircle, Clock, AlertTriangle, Phone, ArrowRight, LogOut, UserX } from 'lucide-react'
 import StatsCard from '@/components/shared/StatsCard'
 import StatusBadge from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatDateTime, getOverstayMinutes } from '@/lib/utils/guest-pass'
+import { checkOutGuest } from '@/app/actions/guest-passes'
+import { toast } from 'sonner'
 
 interface OverstayEntry {
   id: string
@@ -36,13 +39,17 @@ interface SecurityDashboardClientProps {
 }
 
 export default function SecurityDashboardClient({
-  insideNow,
-  completedToday,
-  totalToday,
-  overstayCount,
-  recentLogs,
-  overstays,
+  insideNow, completedToday, totalToday, overstayCount, recentLogs, overstays,
 }: SecurityDashboardClientProps) {
+  const [askingToLeave, setAskingToLeave] = useState<string | null>(null)
+
+  const handleAskToLeave = async (entryLogId: string, guestName: string) => {
+    setAskingToLeave(entryLogId)
+    const res = await checkOutGuest({ entryLogId })
+    setAskingToLeave(null)
+    if (res.success) toast.success(`${guestName} checked out`)
+    else toast.error(res.error)
+  }
   const stats = [
     { title: 'Visitors Today', value: totalToday, icon: Users, color: 'blue' as const },
     { title: 'Inside Now', value: insideNow, icon: Clock, color: 'green' as const },
@@ -144,31 +151,31 @@ export default function SecurityDashboardClient({
                     </div>
 
                     {/* Call resident button */}
-                    {residentPhone ? (
-                      <a
-                        href={`tel:${residentPhone}`}
-                        className="shrink-0"
-                        aria-label={`Call resident ${entry.guest_pass?.resident?.full_name}`}
-                      >
-                        <Button
-                          size="sm"
-                          className="gap-1.5 bg-red-600 hover:bg-red-700 text-white h-10 px-4"
-                        >
+                    <div className="flex flex-col gap-2 shrink-0">
+                      {residentPhone ? (
+                        <a href={`tel:${residentPhone}`} aria-label={`Call resident`}>
+                          <Button size="sm" className="gap-1.5 bg-red-600 hover:bg-red-700 text-white h-10 px-4">
+                            <Phone className="h-4 w-4" />
+                            Call Resident
+                          </Button>
+                        </a>
+                      ) : (
+                        <Button size="sm" variant="outline" className="shrink-0 gap-1.5 border-red-300 text-red-700 h-10 px-4" disabled>
                           <Phone className="h-4 w-4" />
-                          Call Resident
+                          No phone
                         </Button>
-                      </a>
-                    ) : (
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
-                        className="shrink-0 gap-1.5 border-red-300 text-red-700 h-10 px-4"
-                        disabled
+                        className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50 h-10 px-4"
+                        onClick={() => handleAskToLeave(entry.id, entry.guest_pass?.guest_name ?? 'Guest')}
+                        disabled={askingToLeave === entry.id}
                       >
-                        <Phone className="h-4 w-4" />
-                        No phone
+                        <UserX className="h-4 w-4" />
+                        {askingToLeave === entry.id ? 'Processing…' : 'Ask to Leave'}
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </Card>
               )
