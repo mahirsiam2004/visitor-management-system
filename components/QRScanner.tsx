@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Html5QrcodeScanner, Html5QrcodeScannerState } from 'html5-qrcode'
+import { Html5QrcodeScanner, Html5QrcodeScannerState, Html5QrcodeScanType } from 'html5-qrcode'
 import { checkInGuest } from '@/app/actions/guest-passes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,9 +25,8 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
       'qr-reader',
       {
         fps: 10,
-        qrborderWidth: 2,
         rememberLastUsedCamera: true,
-        supportedScanTypes: ['scan_type_camera', 'scan_type_file'],
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA, Html5QrcodeScanType.SCAN_TYPE_FILE],
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true,
         },

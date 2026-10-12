@@ -52,7 +52,7 @@ export default function StaffPage() {
       if (vRes.success) setVisitors(vRes.data)
       else setError(vRes.error)
       if (tRes.success) setTimeline(tRes.data)
-      else if (!vRes.error) setError(tRes.error)
+      else if (vRes.success) setError(tRes.error)
     } catch (e: any) {
       setError(e?.message || 'Failed to load staff records')
     } finally {

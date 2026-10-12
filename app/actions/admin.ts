@@ -46,8 +46,10 @@ export async function getAdminStats(): Promise<ActionResult<AdminStats>> {
       { count: activePasses },
       { count: expiredPasses },
       { count: revokedPasses },
+      { count: usedPasses },
       { count: activeGuests },
       { count: completedVisits },
+      { count: overstayCount },
     ] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'resident'),
       supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'security'),
@@ -55,8 +57,10 @@ export async function getAdminStats(): Promise<ActionResult<AdminStats>> {
       supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'valid').gt('expiry_time', now),
       supabase.from('guest_passes').select('*', { count: 'exact', head: true }).or(`status.eq.expired,and(status.eq.valid,expiry_time.lt.${now})`),
       supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'revoked'),
+      supabase.from('guest_passes').select('*', { count: 'exact', head: true }).eq('status', 'used'),
       supabase.from('entry_logs').select('*', { count: 'exact', head: true }).eq('status', 'inside'),
       supabase.from('entry_logs').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+      supabase.from('entry_logs').select('*', { count: 'exact', head: true }).eq('status', 'inside').lt('expected_exit_at', now),
     ])
 
     return {

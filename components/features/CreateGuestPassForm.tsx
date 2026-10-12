@@ -113,7 +113,7 @@ function PassSuccessView({
                 ['Duration', `${pass.duration_hours}h`],
                 ['Persons allowed', String(pass.allowed_persons)],
                 ['Purpose', pass.purpose],
-              ].filter(Boolean).map(([label, value]) => (
+              ].filter((x): x is [string, string] => Boolean(x)).map(([label, value]) => (
                 <div key={label} className="flex justify-between py-1.5 border-b border-slate-100">
                   <dt className="text-slate-500">{label}</dt>
                   <dd className="font-medium text-slate-900">{value}</dd>

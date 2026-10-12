@@ -11,7 +11,7 @@
     "dev:low-mem": "node --max-old-space-size=2048 node_modules/next/dist/bin/next dev --no-turbopack",
     "build": "node --max-old-space-size=4096 node_modules/next/dist/bin/next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

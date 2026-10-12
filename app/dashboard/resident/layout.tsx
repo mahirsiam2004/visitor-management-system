@@ -24,6 +24,11 @@ export default async function ResidentLayout({ children }: { children: React.Rea
       phone_number: user.user_metadata?.phone_number ?? null,
       apartment_number: user.user_metadata?.apartment_number ?? null,
       role: 'resident' as const,
+      is_active: true,
+      deactivated_at: null,
+      deactivated_by: null,
+      deactivation_reason: null,
+      delivery_auto_allow_until: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }

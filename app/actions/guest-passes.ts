@@ -198,11 +198,11 @@ export async function createGuestPass(input: unknown): Promise<ActionResult<Gues
 
     // If companions were registered, insert them into guest_pass_members
     if (validated.companions && validated.companions.length > 0) {
-      const memberRows = validated.companions.map((c) => ({
+      const memberRows = validated.companions.map((c: any) => ({
         guest_pass_id: data.id,
-        full_name:     c.fullName,
+        full_name:     c.full_name ?? c.fullName,
         relation:      c.relation,
-        is_minor:      Boolean(c.isMinor),
+        is_minor:      Boolean(c.is_minor ?? c.isMinor),
       }))
       await supabase.from('guest_pass_members').insert(memberRows)
     }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import QRCode from 'react-qr-code'
-import { formatDateTime, formatDate, parseQRData, generateQRToken } from '@/lib/utils/guest-pass'
+import { formatDateTime, formatDate, generateQRToken } from '@/lib/utils/guest-pass'
 import { updateGuestPassStatus } from '@/app/actions/guest-passes'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -110,7 +110,7 @@ export default function GuestPassCard({ pass, onUpdate }: GuestPassCardProps) {
       <div className="bg-slate-50 rounded-lg p-4 mb-6 flex items-center justify-center">
         {showQR ? (
           <div id={`qr-${pass.id}`}>
-            <QRCode value={qrData} size={180} level="H" includeMargin={true} />
+            <QRCode value={qrData} size={180} level="H" />
           </div>
         ) : (
           <div className="text-center text-slate-600">

@@ -36,7 +36,7 @@ export default function TodaysVisitorsPage() {
         toast.error(todayRes.error)
       }
       if (overstayRes.success) setOverstays(overstayRes.data)
-      else if (!todayRes.error) setError(overstayRes.error)
+      else if (todayRes.success) setError(overstayRes.error)
     } catch (e: any) {
       setError(e?.message || 'Failed to load visitors')
     } finally {

@@ -71,7 +71,7 @@ export default function AdminExtensionsPage() {
           <p>No pending extension requests</p>
         </Card>
       )}
-      {!error && (
+      {!loading && !error && items.length > 0 && (
         <div className="space-y-4">
           {items.map((ext) => (
           <Card key={ext.id} className="p-5 border-blue-200">
@@ -103,6 +103,7 @@ export default function AdminExtensionsPage() {
           </Card>
         ))}
       </div>
+      )}
 
       <Dialog open={!!rejectTarget} onClose={() => setRejectTarget(null)}>
         <DialogContent title="Reject Extension" onClose={() => setRejectTarget(null)}>

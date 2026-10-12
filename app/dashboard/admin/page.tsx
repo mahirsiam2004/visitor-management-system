@@ -15,6 +15,9 @@ export default async function AdminDashboardPage() {
     activeGuests: 0,
     completedVisits: 0,
     expiredPasses: 0,
+    revokedPasses: 0,
+    usedPasses: 0,
+    overstayCount: 0,
   }
 
   const todaysVisitors = visitorsResult.success ? visitorsResult.data : []
