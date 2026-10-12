@@ -50,7 +50,15 @@ export default async function PublicPassPage({ params }: PageProps) {
         {/* Main card */}
         <div className="rounded-2xl bg-white overflow-hidden shadow-2xl">
           {/* Header */}
-          <div className="bg-blue-600 px-6 py-5 text-center">
+          <div className="bg-blue-600 px-6 py-5 text-center flex flex-col items-center">
+            {pass.guest_photo_url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={pass.guest_photo_url}
+                alt={pass.guest_name}
+                className="h-20 w-20 rounded-full object-cover border-4 border-white/80 shadow-md mb-2"
+              />
+            )}
             <p className="text-blue-100 text-xs uppercase tracking-wider mb-1">Guest Pass</p>
             <h1 className="text-2xl font-bold text-white">{pass.guest_name}</h1>
             <p className="text-blue-200 text-sm mt-1">{pass.purpose}</p>

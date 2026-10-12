@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import VerifyTokenClient from './VerifyTokenClient'
 import type { Metadata } from 'next'
+import { verifyGuestToken } from '@/app/actions/guest-passes'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -18,13 +18,12 @@ export default async function VerifyPage({ params }: PageProps) {
 
   if (!token) notFound()
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('verify_guest_token', { p_token: token })
+  const result = await verifyGuestToken(token)
 
   return (
     <VerifyTokenClient
       token={token}
-      initialResult={error ? null : data}
+      initialResult={result.success ? result.data : null}
     />
   )
 }

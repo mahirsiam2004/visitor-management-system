@@ -39,6 +39,8 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
   const scannerRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const [idType, setIdType] = useState<'nid' | 'driving_license' | 'student_id' | 'known_to_resident' | 'none'>('known_to_resident')
+
   const processToken = useCallback(async (token: string) => {
     setProcessing(true)
     setErrorMessage('')
@@ -54,7 +56,7 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
           try { await scannerRef.current.stop() } catch {}
         }
       } else {
-        setErrorMessage(result.error)
+        setErrorMessage(result.error || 'Guest pass not found')
         setScanState('error')
       }
     } catch {
@@ -120,7 +122,13 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
     if (!verifyResult?.guest_pass) return
     setProcessing(true)
     try {
-      const result = await checkInGuest({ token: verifyResult.guest_pass.qr_token })
+      const result = await checkInGuest({
+        token: verifyResult.guest_pass.qr_token || verifyResult.guest_pass.gate_code,
+        idType,
+        identityVerified: true,
+        personsAdmitted: 1,
+        allowEarly: true,
+      })
       if (result.success) {
         toast.success(`${verifyResult.guest_pass.guest_name} checked in successfully!`)
         onSuccess?.()
@@ -136,7 +144,7 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
   const handleManualSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!manualToken.trim()) return
-    await processToken(manualToken)
+    await processToken(manualToken.trim())
   }
 
   const handleReset = () => {
@@ -144,6 +152,7 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
     setVerifyResult(null)
     setErrorMessage('')
     setManualToken('')
+    setIdType('known_to_resident')
 
     // Re-initialize scanner
     if (scannerRef.current) {
@@ -183,6 +192,7 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
       not_found: { icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50 border-red-200', label: 'Not Found' },
       already_inside: { icon: User, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200', label: 'Already Inside' },
       completed: { icon: CheckCircle, color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200', label: 'Visit Completed' },
+      too_early: { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200', label: 'Upcoming Visit' },
     }
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.not_found
@@ -201,21 +211,47 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
           <span className="text-sm text-slate-600 ml-auto">{verifyResult.message}</span>
         </div>
 
-        {/* Guest Details */}
+        {/* Guest Details with Image */}
         {guest_pass && (
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-slate-900 mb-3">Guest Information</h3>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              <div>
-                <dt className="text-slate-500 text-xs">Guest Name</dt>
-                <dd className="font-medium text-slate-900">{guest_pass.guest_name}</dd>
-              </div>
-              {guest_pass.guest_phone && (
-                <div>
-                  <dt className="text-slate-500 text-xs">Phone</dt>
-                  <dd className="font-medium text-slate-900">{guest_pass.guest_phone}</dd>
+          <Card className="p-4 space-y-4">
+            <div className="flex items-start gap-4">
+              {guest_pass.guest_photo_url ? (
+                <div className="relative group shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={guest_pass.guest_photo_url}
+                    alt={guest_pass.guest_name}
+                    className="h-20 w-20 rounded-xl object-cover border-2 border-emerald-400 shadow-md"
+                  />
+                  <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-[10px] text-white px-1.5 py-0.5 rounded-full font-medium shadow-sm">
+                    Photo
+                  </span>
+                </div>
+              ) : (
+                <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 text-slate-400 border border-slate-200">
+                  <User className="h-8 w-8 text-slate-400" />
+                  <span className="text-[10px] text-slate-400 mt-0.5">No photo</span>
                 </div>
               )}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-slate-900 leading-tight">{guest_pass.guest_name}</h3>
+                {guest_pass.guest_phone && (
+                  <p className="text-sm text-slate-600 font-mono mt-0.5">{guest_pass.guest_phone}</p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
+                    Apt {guest_pass.apartment_number}
+                  </span>
+                  {guest_pass.gate_code && (
+                    <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md font-mono font-semibold">
+                      Gate Code: {guest_pass.gate_code}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm pt-3 border-t border-slate-100">
               {resident && (
                 <div>
                   <dt className="text-slate-500 text-xs">Resident</dt>
@@ -272,6 +308,40 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
               )}
             </div>
           </Card>
+        )}
+
+        {/* ID verification controls */}
+        {status === 'valid' && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-700">Verification ID Type</span>
+              <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                <CheckCircle className="h-3.5 w-3.5" /> ID Verified
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { value: 'known_to_resident', label: 'Known to Resident' },
+                { value: 'nid', label: 'NID' },
+                { value: 'driving_license', label: 'Driving License' },
+                { value: 'student_id', label: 'Student ID' },
+                { value: 'none', label: 'None' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setIdType(opt.value as any)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    idType === opt.value
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Actions */}

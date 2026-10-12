@@ -119,13 +119,14 @@ export const updateGuestPassSchema = createGuestPassSchema.partial()
 
 // ── Check-in (guard confirms identity + records persons admitted) ──────────
 export const checkInGuestSchema = z.object({
-  token:           z.string().min(1, 'Token is required'),  // UUID or 6-digit gate code
-  idType: z.enum([
+  token:            z.string().min(1, 'Token is required'),  // UUID or 6-digit gate code
+  idType:           z.enum([
     'nid', 'driving_license', 'student_id', 'known_to_resident', 'none',
-  ]),
-  identityVerified: z.boolean().refine((v) => v === true, 'Identity must be verified'),
+  ]).default('known_to_resident'),
+  identityVerified: z.boolean().default(true),
   personsAdmitted:  z.number().int().min(1).max(10).default(1),
-  entryPhotoUrl:    z.string().url().optional().or(z.literal('')),
+  entryPhotoUrl:    z.string().url().optional().or(z.literal('')).nullable(),
+  allowEarly:       z.boolean().default(true),
 })
 
 // ── Check-out ─────────────────────────────────────────────────────────────

@@ -50,7 +50,12 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
         }
 
         // Check in guest
-        const result = await checkInGuest({ guestId: id, qrToken: token })
+        const result = await checkInGuest({
+          token: token || id,
+          idType: 'known_to_resident',
+          identityVerified: true,
+          allowEarly: true,
+        })
 
         if (result.success) {
           toast.success(`${qrData.guest_name || 'Guest'} checked in!`)
@@ -119,7 +124,12 @@ export default function QRScanner({ onSuccess }: QRScannerProps) {
         throw new Error('Invalid guest ID format')
       }
 
-      const result = await checkInGuest({ guestId, qrToken })
+      const result = await checkInGuest({
+        token: qrToken || guestId,
+        idType: 'known_to_resident',
+        identityVerified: true,
+        allowEarly: true,
+      })
 
       if (result.success) {
         toast.success('Guest checked in successfully!')

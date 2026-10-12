@@ -119,8 +119,25 @@ export default function VerifyTokenClient({ token, initialResult }: VerifyTokenC
         {/* Guest Details */}
         {guest_pass && (
           <Card className="p-5">
-            <h2 className="text-sm font-semibold text-slate-900 mb-3">Guest Information</h2>
-            <dl className="space-y-2.5 text-sm">
+            <div className="flex items-center gap-3 mb-4">
+              {guest_pass.guest_photo_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={guest_pass.guest_photo_url}
+                  alt={guest_pass.guest_name}
+                  className="h-14 w-14 rounded-xl object-cover border border-slate-200 shadow-sm"
+                />
+              ) : (
+                <div className="h-14 w-14 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                  <User className="h-6 w-6" />
+                </div>
+              )}
+              <div>
+                <h2 className="text-base font-bold text-slate-900 leading-tight">{guest_pass.guest_name}</h2>
+                <p className="text-xs text-slate-500">Apt {guest_pass.apartment_number}</p>
+              </div>
+            </div>
+            <dl className="space-y-2.5 text-sm pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
                 <dt className="text-slate-500 flex items-center gap-1.5">
                   <User className="h-3.5 w-3.5" />

@@ -59,7 +59,13 @@ export default function GuestSearch({ onCheckIn }: GuestSearchProps) {
   const handleCheckIn = async (pass: GuestSearchResult) => {
     setCheckingIn(pass.id)
     try {
-      const result = await checkInGuest({ token: pass.qr_token })
+      const result = await checkInGuest({
+        token: pass.qr_token || pass.gate_code,
+        idType: 'known_to_resident',
+        identityVerified: true,
+        personsAdmitted: 1,
+        allowEarly: true,
+      })
       if (result.success) {
         toast.success(`${pass.guest_name} checked in successfully!`)
         onCheckIn?.()
@@ -94,7 +100,7 @@ export default function GuestSearch({ onCheckIn }: GuestSearchProps) {
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by guest name, phone (01XXXXXXXXX), or apartment (A-101)…"
+              placeholder="Search by guest name, phone, apartment, or gate code (e.g. 307213)…"
               className="pl-9 pr-9 h-11 text-base"
               autoComplete="off"
               aria-label="Search guests"
@@ -172,18 +178,34 @@ export default function GuestSearch({ onCheckIn }: GuestSearchProps) {
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    {/* Avatar */}
-                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-semibold text-base ${
-                      canCheckIn ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {pass.guest_name.charAt(0).toUpperCase()}
-                    </div>
+                    {/* Avatar / Photo */}
+                    {pass.guest_photo_url ? (
+                      <div className="relative shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={pass.guest_photo_url}
+                          alt={pass.guest_name}
+                          className="h-11 w-11 rounded-full object-cover border-2 border-emerald-400 shadow-sm"
+                        />
+                      </div>
+                    ) : (
+                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-semibold text-base ${
+                        canCheckIn ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {pass.guest_name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
 
                     {/* Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1.5">
                         <p className="font-semibold text-slate-900 text-base">{pass.guest_name}</p>
                         <StatusBadge type="pass" status={status} />
+                        {pass.gate_code && (
+                          <span className="font-mono text-xs bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
+                            Code: {pass.gate_code}
+                          </span>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-600">

@@ -500,33 +500,128 @@ export async function archiveGuestPass(guestPassId: string, reason: string): Pro
 // ═══════════════════════════════════════════════════════════════════════════
 export async function verifyGuestToken(token: string): Promise<ActionResult<VerifyTokenResult>> {
   try {
+    const tokenClean = (token || '').trim()
+    if (!tokenClean) {
+      return { success: true, data: { valid: false, status: 'not_found', message: 'Token is required' } }
+    }
+
     const supabase = await createClient()
-    const { data, error } = await supabase.rpc('verify_guest_token', { p_token: token })
-    if (error) {
-      // Fallback to direct query
-      const { data: passRow } = await supabase.from('guest_passes').select('*, resident:resident_id (*)').eq('qr_token', token).maybeSingle()
+    const isGateCode = /^\d{6}$/.test(tokenClean)
+
+    let passRow: any = null
+
+    if (isGateCode) {
+      const { data } = await supabase
+        .from('guest_passes')
+        .select('*, resident:resident_id (id, full_name, email, apartment_number, phone_number)')
+        .eq('gate_code', tokenClean)
+        .is('archived_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      passRow = data
+    } else {
+      // First try by qr_token
+      const { data } = await supabase
+        .from('guest_passes')
+        .select('*, resident:resident_id (id, full_name, email, apartment_number, phone_number)')
+        .eq('qr_token', tokenClean)
+        .is('archived_at', null)
+        .maybeSingle()
+      passRow = data
+
+      // If not found, try by guest_id
       if (!passRow) {
-        return { success: true, data: { valid: false, status: 'not_found', message: 'Guest pass not found' } }
+        const { data: byGuestId } = await supabase
+          .from('guest_passes')
+          .select('*, resident:resident_id (id, full_name, email, apartment_number, phone_number)')
+          .eq('guest_id', tokenClean)
+          .is('archived_at', null)
+          .maybeSingle()
+        passRow = byGuestId
       }
-      const parsed = parsePass(passRow)
-      if (parsed.status === 'revoked') {
-        return { success: true, data: { valid: false, status: 'revoked', message: 'This guest pass has been revoked' } }
+
+      // If still not found, try gate_code
+      if (!passRow) {
+        const { data: byGateCode } = await supabase
+          .from('guest_passes')
+          .select('*, resident:resident_id (id, full_name, email, apartment_number, phone_number)')
+          .eq('gate_code', tokenClean)
+          .is('archived_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        passRow = byGateCode
       }
-      if (new Date(parsed.expiry_time) < new Date()) {
-        return { success: true, data: { valid: false, status: 'expired', message: 'This guest pass has expired' } }
-      }
+    }
+
+    if (!passRow) {
+      return { success: true, data: { valid: false, status: 'not_found', message: 'Guest pass not found' } }
+    }
+
+    const parsed = parsePass(passRow)
+    const resident = passRow.resident || null
+
+    if (parsed.status === 'revoked') {
       return {
         success: true,
         data: {
-          valid: true,
-          status: 'valid',
-          message: 'Guest pass is valid',
+          valid: false,
+          status: 'revoked',
+          message: 'Pass has been revoked by the resident',
           guest_pass: parsed,
-          resident: (passRow as any).resident,
+          resident,
         },
       }
     }
-    return { success: true, data: data as VerifyTokenResult }
+
+    // Check if already inside
+    const { data: existingLog } = await supabase
+      .from('entry_logs')
+      .select('id, entry_time, exit_time, status')
+      .eq('guest_pass_id', parsed.id)
+      .eq('status', 'inside')
+      .maybeSingle()
+
+    if (existingLog) {
+      return {
+        success: true,
+        data: {
+          valid: false,
+          status: 'already_inside',
+          message: 'Guest is already inside the building',
+          guest_pass: parsed,
+          resident,
+          entry_log_id: existingLog.id,
+          entry_time: existingLog.entry_time,
+        },
+      }
+    }
+
+    // Check if expired
+    if (new Date(parsed.expiry_time) < new Date()) {
+      return {
+        success: true,
+        data: {
+          valid: false,
+          status: 'expired',
+          message: 'This guest pass has expired',
+          guest_pass: parsed,
+          resident,
+        },
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        valid: true,
+        status: 'valid',
+        message: 'Guest pass is valid',
+        guest_pass: parsed,
+        resident,
+      },
+    }
   } catch (error: unknown) {
     if (error instanceof Error) return { success: false, error: error.message }
     return { success: false, error: 'Failed to verify token' }
@@ -580,6 +675,16 @@ export async function checkInGuest(input: unknown): Promise<ActionResult<EntryLo
         .is('archived_at', null)
         .maybeSingle()
       guestPassRow = data
+
+      if (!guestPassRow) {
+        const { data: byGuestId } = await supabase
+          .from('guest_passes')
+          .select('*')
+          .eq('guest_id', tokenClean)
+          .is('archived_at', null)
+          .maybeSingle()
+        guestPassRow = byGuestId
+      }
     }
 
     if (!guestPassRow) {
@@ -601,7 +706,7 @@ export async function checkInGuest(input: unknown): Promise<ActionResult<EntryLo
     if (guestPass.status === 'revoked') return deny('revoked', 'ACCESS DENIED — this pass has been revoked by the resident.')
 
     const now = new Date()
-    if (guestPass.valid_from && now < new Date(guestPass.valid_from)) {
+    if (guestPass.valid_from && now < new Date(guestPass.valid_from) && !validated.allowEarly) {
       const when = new Date(guestPass.valid_from).toLocaleTimeString('en-US', {
         timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit',
       })
@@ -989,12 +1094,14 @@ export async function searchGuests(query: string): Promise<ActionResult<GuestSea
     const { data, error } = await supabase
       .from('guest_passes')
       .select(`
-        id, guest_name, guest_phone, apartment_number, purpose,
+        id, guest_id, guest_name, guest_phone, apartment_number, purpose,
         visit_date, visit_time, expiry_time, duration_hours,
-        status, qr_token,
+        status, qr_token, gate_code, valid_from, allowed_persons, entered_count,
+        guest_photo_url, guest_photo_path,
         resident:resident_id ( full_name, phone_number )
       `)
-      .or(`guest_name.ilike.%${q}%,guest_phone.ilike.%${q}%,apartment_number.ilike.%${q}%`)
+      .or(`guest_name.ilike.%${q}%,guest_phone.ilike.%${q}%,apartment_number.ilike.%${q}%,gate_code.ilike.%${q}%,guest_id.ilike.%${q}%`)
+      .is('archived_at', null)
       .order('visit_date', { ascending: false })
       .limit(20)
 
@@ -1059,6 +1166,7 @@ export async function getPassPublicInfo(token: string): Promise<ActionResult<{
   gate_code: string | null
   allowed_persons: number
   status: string
+  guest_photo_url: string | null
   members: { full_name: string; relation: string; is_minor: boolean }[]
 }>> {
   try {
@@ -1089,6 +1197,7 @@ export async function getPassPublicInfo(token: string): Promise<ActionResult<{
         gate_code:       pass.gate_code,
         allowed_persons: pass.allowed_persons,
         status:          pass.status,
+        guest_photo_url: pass.guest_photo_url,
         members:         [],
       },
     }

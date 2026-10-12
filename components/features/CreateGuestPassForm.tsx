@@ -102,6 +102,20 @@ function PassSuccessView({
         <div className="p-6 grid gap-8 md:grid-cols-2">
           {/* Details */}
           <div className="space-y-3">
+            {pass.guest_photo_url && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 mb-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pass.guest_photo_url}
+                  alt={pass.guest_name}
+                  className="h-16 w-16 rounded-xl object-cover border border-slate-300 shadow-sm"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Guest Photo Attached</p>
+                  <p className="text-xs text-slate-500">Security guards will see this photo during verification.</p>
+                </div>
+              </div>
+            )}
             <h3 className="font-semibold text-slate-900">Pass Details</h3>
             <dl className="space-y-2 text-sm">
               {[
@@ -206,6 +220,7 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
     formState: { errors },
     reset,
     watch,
+    setValue,
   } = useForm<CreateGuestPassInput>({
     resolver: zodResolver(createGuestPassSchema),
     defaultValues: {
@@ -244,19 +259,22 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
 
       if (!result.success) throw new Error(result.error || 'Upload failed')
 
-      setPhotoUrl(result.displayUrl || result.url)
+      const uploadedUrl = result.displayUrl || result.url
+      setPhotoUrl(uploadedUrl)
+      setValue('guestPhotoUrl', uploadedUrl)
       toast.success('Photo uploaded via ImgBB')
     } catch (err: any) {
       toast.error(err?.message ?? 'Upload failed')
     } finally {
       setPhotoUploading(false)
     }
-  }, [])
+  }, [setValue])
 
   const onSubmit = async (data: CreateGuestPassInput) => {
     setLoading(true)
     try {
-      const result = await createGuestPass({ ...data, guestPhotoUrl: photoUrl || undefined })
+      const finalPhoto = photoUrl || data.guestPhotoUrl || undefined
+      const result = await createGuestPass({ ...data, guestPhotoUrl: finalPhoto })
       if (result.success) {
         setCreatedPass(result.data)
         onSuccess?.(result.data)
