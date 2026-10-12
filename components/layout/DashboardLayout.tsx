@@ -17,7 +17,7 @@ import {
   Scan, QrCode, Building2, ChevronLeft, ChevronRight,
   Menu, X, ShieldCheck, RefreshCcw, CalendarDays,
   AlertTriangle, Zap, ShieldOff, PlusCircle, TrendingDown,
-  SlidersHorizontal,
+  SlidersHorizontal, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import NotificationBell from '@/components/features/NotificationBell'
 
@@ -25,6 +25,11 @@ interface NavItem {
   label: string
   href: string
   icon: React.ElementType
+}
+
+interface NavGroup {
+  label: string
+  items: NavItem[]
 }
 
 const residentNav: NavItem[] = [
@@ -41,29 +46,56 @@ const residentNav: NavItem[] = [
 const securityNav: NavItem[] = [
   { label: 'Dashboard',         href: '/dashboard/security',              icon: LayoutDashboard },
   { label: 'Quick Entry',       href: '/dashboard/security/quick-entry',  icon: Zap },
-  { label: 'QR Scanner',        href: '/dashboard/security/scanner',  icon: Scan },
-  { label: "Today's Visitors",  href: '/dashboard/security/visitors', icon: Users },
-  { label: 'Entry Logs',        href: '/dashboard/security/logs',     icon: ClipboardList },
+  { label: 'QR Scanner',        href: '/dashboard/security/scanner',      icon: Scan },
+  { label: "Today's Visitors",  href: '/dashboard/security/visitors',     icon: Users },
+  { label: 'Entry Logs',        href: '/dashboard/security/logs',         icon: ClipboardList },
 ]
 
-const adminNav: NavItem[] = [
-  { label: 'Dashboard',         href: '/dashboard/admin',               icon: LayoutDashboard },
-  { label: 'Residents',         href: '/dashboard/admin/residents',     icon: Building2 },
-  { label: 'Security Guards',   href: '/dashboard/admin/security',      icon: Shield },
-  { label: 'Guest Passes',      href: '/dashboard/admin/guest-passes',  icon: QrCode },
-  { label: 'Entry Logs',        href: '/dashboard/admin/entry-logs',    icon: ClipboardList },
-  { label: 'Event Approvals',   href: '/dashboard/admin/events',        icon: CalendarDays },
-  { label: 'Extensions',        href: '/dashboard/admin/extensions',    icon: PlusCircle },
-  { label: 'Penalties',         href: '/dashboard/admin/penalties',     icon: TrendingDown },
-  { label: 'Blacklist',         href: '/dashboard/admin/blacklist',     icon: ShieldOff },
-  { label: 'Policy Settings',   href: '/dashboard/admin/policy',        icon: SlidersHorizontal },
-  { label: 'Analytics',         href: '/dashboard/admin/analytics',     icon: BarChart3 },
+// Grouped admin nav
+const adminNavGroups: NavGroup[] = [
+  {
+    label: 'Overview',
+    items: [
+      { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'People',
+    items: [
+      { label: 'Residents', href: '/dashboard/admin/residents', icon: Building2 },
+      { label: 'Guards',    href: '/dashboard/admin/security',  icon: Shield },
+    ],
+  },
+  {
+    label: 'Access',
+    items: [
+      { label: 'Guest Passes', href: '/dashboard/admin/guest-passes', icon: QrCode },
+      { label: 'Entry Logs',   href: '/dashboard/admin/entry-logs',   icon: ClipboardList },
+      { label: 'Events',       href: '/dashboard/admin/events',       icon: CalendarDays },
+      { label: 'Extensions',   href: '/dashboard/admin/extensions',   icon: PlusCircle },
+    ],
+  },
+  {
+    label: 'Compliance',
+    items: [
+      { label: 'Penalties',    href: '/dashboard/admin/penalties',    icon: TrendingDown },
+      { label: 'Blacklist',    href: '/dashboard/admin/blacklist',    icon: ShieldOff },
+      { label: 'Audit Log',    href: '/dashboard/admin/audit',        icon: ClipboardList },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { label: 'Policy Settings', href: '/dashboard/admin/policy',    icon: SlidersHorizontal },
+      { label: 'Analytics',       href: '/dashboard/admin/analytics', icon: BarChart3 },
+    ],
+  },
 ]
 
 const navByRole: Record<UserRole, NavItem[]> = {
   resident: residentNav,
   security: securityNav,
-  admin:    adminNav,
+  admin:    [], // admin uses adminNavGroups
 }
 
 const roleLabels: Record<UserRole, string> = {
@@ -89,6 +121,10 @@ export default function DashboardLayout({ children, profile }: DashboardLayoutPr
   const [collapsed,   setCollapsed]   = useState(false)
   const [mobileOpen,  setMobileOpen]  = useState(false)
   const [loggingOut,  setLoggingOut]  = useState(false)
+  // Track which admin groups are open (all open by default)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(adminNavGroups.map(g => [g.label, true]))
+  )
 
   const role      = profile.role as UserRole
   const navItems  = navByRole[role] || residentNav
@@ -111,7 +147,35 @@ export default function DashboardLayout({ children, profile }: DashboardLayoutPr
     }
   }
 
+  const toggleGroup = (label: string) => {
+    setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
+  }
+
   /* ------------------------------------------------------------------ */
+  const NavLink = ({ item }: { item: NavItem }) => {
+    const Icon     = item.icon
+    // Exact match for /dashboard/admin; prefix match for sub-routes
+    const isActive = item.href === '/dashboard/admin'
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(item.href + '/')
+    return (
+      <Link
+        href={item.href}
+        className={cn(
+          'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 min-h-[40px]',
+          collapsed ? 'justify-center' : 'gap-3',
+          isActive
+            ? 'bg-blue-600 text-white shadow-sm'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        )}
+        title={collapsed ? item.label : undefined}
+      >
+        <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+      </Link>
+    )
+  }
+
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
 
@@ -120,11 +184,7 @@ export default function DashboardLayout({ children, profile }: DashboardLayoutPr
         'flex items-center border-b border-slate-100 px-4',
         collapsed ? 'justify-center py-4' : 'py-4'
       )}>
-        {collapsed ? (
-          <Logo size="sm" />
-        ) : (
-          <Logo size="lg" />
-        )}
+        {collapsed ? <Logo size="sm" /> : <Logo size="lg" />}
       </div>
 
       {/* ── Role badge ── */}
@@ -139,30 +199,58 @@ export default function DashboardLayout({ children, profile }: DashboardLayoutPr
 
       {/* ── Nav ── */}
       <nav className="flex-1 overflow-y-auto px-3 py-2">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const Icon     = item.icon
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
-                    collapsed ? 'justify-center' : 'gap-3',
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  )}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
+        {role === 'admin' ? (
+          // Grouped admin nav
+          <div className="space-y-1">
+            {adminNavGroups.map((group) => (
+              <div key={group.label}>
+                {!collapsed ? (
+                  <>
+                    <button
+                      onClick={() => toggleGroup(group.label)}
+                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <span>{group.label}</span>
+                      {openGroups[group.label]
+                        ? <ChevronUp className="h-3 w-3" />
+                        : <ChevronDown className="h-3 w-3" />
+                      }
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {openGroups[group.label] && (
+                        <motion.ul
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.18 }}
+                          className="overflow-hidden space-y-0.5 pl-1"
+                        >
+                          {group.items.map(item => (
+                            <li key={item.href}><NavLink item={item} /></li>
+                          ))}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </>
+                ) : (
+                  // Collapsed: show icons only, no group headers
+                  <ul className="space-y-0.5">
+                    {group.items.map(item => (
+                      <li key={item.href}><NavLink item={item} /></li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Flat nav for resident/security
+          <ul className="space-y-1">
+            {navItems.map((item) => (
+              <li key={item.href}><NavLink item={item} /></li>
+            ))}
+          </ul>
+        )}
       </nav>
 
       {/* ── User / logout ── */}

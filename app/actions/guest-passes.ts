@@ -293,30 +293,41 @@ export async function getResidentGuestPassStats(): Promise<ActionResult<Dashboar
 
     const { data: passes, error: passErr } = await supabase
       .from('guest_passes')
-      .select('id, status, expiry_time')
+      .select('id, status, expiry_time, valid_from, allowed_persons, entered_count')
       .eq('resident_id', user.id)
+      .is('archived_at', null)
 
     if (passErr) return { success: false, error: passErr.message }
 
     const passIds = (passes || []).map((p) => p.id)
 
-    const [completedRes, insideRes] = await Promise.all([
+    const [completedRes, insideRes, penaltiesRes] = await Promise.all([
       passIds.length > 0
         ? supabase.from('entry_logs').select('*', { count: 'exact', head: true })
             .in('guest_pass_id', passIds).eq('status', 'completed')
         : Promise.resolve({ count: 0 }),
       passIds.length > 0
-        ? supabase.from('entry_logs').select('guest_pass_id, entry_time')
-            .in('guest_pass_id', passIds).eq('status', 'inside')
+        ? supabase.from('entry_logs').select('guest_pass_id, entry_time, expected_exit_at, exit_time')
+            .in('guest_pass_id', passIds).is('exit_time', null)
         : Promise.resolve({ data: [] }),
+      supabase.from('penalties')
+        .select('*', { count: 'exact', head: true })
+        .eq('resident_id', user.id)
+        .eq('status', 'pending'),
     ])
 
     const now = new Date()
-    // Calculate overstays: inside entry logs where pass expiry_time is in the past
-    const passExpiryMap = new Map((passes || []).map(p => [p.id, new Date(p.expiry_time)]))
+    // insideNow: exit_time IS NULL
+    const insideNow = (insideRes.data || []).filter(el => !el.exit_time).length
+    // upcomingCount: valid_from in the future
+    const upcomingCount = (passes || []).filter(p =>
+      p.valid_from && new Date(p.valid_from) > now && p.status === 'valid'
+    ).length
+    // overstay: inside AND now > expected_exit_at
     const overstayCount = (insideRes.data || []).filter(el => {
-      const exp = passExpiryMap.get(el.guest_pass_id)
-      return exp && exp < now
+      if (el.exit_time) return false
+      if (!el.expected_exit_at) return false
+      return new Date(el.expected_exit_at) < now
     }).length
 
     const total   = passes?.length || 0
@@ -334,7 +345,10 @@ export async function getResidentGuestPassStats(): Promise<ActionResult<Dashboar
         revokedPasses:  revoked,
         usedPasses:     used,
         completedVisits: completedRes.count || 0,
-        overstayCount:  overstayCount,
+        overstayCount,
+        insideNow,
+        upcomingCount,
+        penaltiesDue: penaltiesRes.count || 0,
       },
     }
   } catch (error: unknown) {
@@ -342,6 +356,7 @@ export async function getResidentGuestPassStats(): Promise<ActionResult<Dashboar
     return { success: false, error: 'Failed to fetch stats' }
   }
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // REVOKE PASS
@@ -575,27 +590,38 @@ export async function checkInGuest(input: unknown): Promise<ActionResult<EntryLo
 
     const personsAdmitted = validated.personsAdmitted ?? 1
 
-    const notesPayload = JSON.stringify({
-      id_type: validated.idType,
-      identity_verified: validated.identityVerified,
-      persons_admitted: personsAdmitted,
-      entry_photo_url: validated.entryPhotoUrl || null,
-      expected_exit_at: guestPass.expiry_time,
-    })
-
     const { data: entryLog, error: logError } = await supabase
       .from('entry_logs')
       .insert({
         guest_pass_id:     guestPass.id,
         security_guard_id: user.id,
+        guard_id:          user.id,
         entry_time:        now.toISOString(),
         status:            'inside',
-        notes:             notesPayload,
+        expected_exit_at:  guestPass.expiry_time,
+        visitor_type:      'one_time',
+        id_type:           validated.idType || null,
+        identity_verified: validated.identityVerified ?? false,
+        persons_admitted:  personsAdmitted,
+        entry_photo_url:   validated.entryPhotoUrl || null,
       })
       .select()
       .single()
 
     if (logError) return { success: false, error: logError.message }
+
+    // Increment entered_count on the pass
+    await supabase
+      .from('guest_passes')
+      .update({ entered_count: (guestPass.entered_count ?? 0) + personsAdmitted })
+      .eq('id', guestPass.id)
+
+    // Audit log
+    await writeAuditLog({
+      supabase, actor_id: user.id, actor_role: profile.role as any,
+      action: 'checkin.allowed', entity_type: 'entry_logs', entity_id: entryLog.id,
+      metadata: { pass_id: guestPass.id, guest_name: guestPass.guest_name, persons_admitted: personsAdmitted },
+    })
 
     // Notify resident
     try {
@@ -634,24 +660,91 @@ export async function checkInGuest(input: unknown): Promise<ActionResult<EntryLo
 export async function checkOutGuest(input: unknown): Promise<ActionResult> {
   try {
     const validated = checkOutGuestSchema.parse(input)
-    const { supabase, profile } = await requireAuth()
+    const { supabase, user, profile } = await requireAuth()
 
     if (!['security', 'admin'].includes(profile.role)) {
       return { success: false, error: 'Only security guards can check out guests' }
     }
 
+    // Fetch the entry log to verify ownership and compute overstay
+    const { data: log, error: fetchErr } = await supabase
+      .from('entry_logs')
+      .select('id, status, entry_time, expected_exit_at, guest_pass_id')
+      .eq('id', validated.entryLogId)
+      .in('status', ['inside', 'overstay'])
+      .maybeSingle()
+
+    if (fetchErr || !log) {
+      return { success: false, error: fetchErr?.message ?? 'Entry log not found or already checked out' }
+    }
+
+    // Fetch grace period from policy (server-side, never from client)
+    const { DEFAULT_OVERSTAY_GRACE_MINUTES, computeVisitStatus } = await import('@/lib/visit-status')
+    let graceMin = DEFAULT_OVERSTAY_GRACE_MINUTES
+    try {
+      const { getPolicy } = await import('./policy')
+      const policyResult = await getPolicy()
+      if (policyResult.success && policyResult.data) {
+        graceMin = policyResult.data.overstay_grace_minutes
+      }
+    } catch { /* use default */ }
+
+    const visitStatus = computeVisitStatus(log as any, graceMin)
+    const exitTime = new Date()
+
     const { error } = await supabase
       .from('entry_logs')
       .update({
-        exit_time: new Date().toISOString(),
-        status: 'completed',
+        exit_time:     exitTime.toISOString(),
+        status:        'completed',
+        checkout_type: 'manual',
       })
-      .eq('id', validated.entryLogId)
-      .eq('status', 'inside')
+      .eq('id', log.id)
 
     if (error) return { success: false, error: error.message }
 
+    // Write audit log
+    await writeAuditLog({
+      supabase, actor_id: user.id, actor_role: profile.role as any,
+      action: 'checkout.manual', entity_type: 'entry_logs', entity_id: log.id,
+      metadata: {
+        pass_id:         log.guest_pass_id,
+        overstay_minutes: visitStatus.overstayMinutes,
+        exit_time:       exitTime.toISOString(),
+      },
+    })
+
+    // Notify host resident (non-fatal)
+    try {
+      if (log.guest_pass_id) {
+        const { data: pass } = await supabase
+          .from('guest_passes')
+          .select('resident_id, guest_name')
+          .eq('id', log.guest_pass_id)
+          .maybeSingle()
+        if (pass) {
+          const { writeNotification } = await import('./notifications')
+          const timeStr = exitTime.toLocaleTimeString('en-US', {
+            timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit',
+          })
+          await writeNotification(supabase, {
+            recipient_id: pass.resident_id,
+            type:         'checkout',
+            title:        'Guest Checked Out',
+            body:         `${pass.guest_name} left at ${timeStr}${
+              visitStatus.isOverstay ? ` (${visitStatus.overstayLabel})` : ''
+            }`,
+            metadata: {
+              entry_log_id:    log.id,
+              overstay_minutes: visitStatus.overstayMinutes,
+            },
+          })
+        }
+      }
+    } catch { /* non-fatal */ }
+
     revalidatePath('/dashboard/security')
+    revalidatePath('/dashboard/resident')
     revalidatePath('/dashboard/admin')
     return { success: true, data: undefined }
   } catch (error: unknown) {

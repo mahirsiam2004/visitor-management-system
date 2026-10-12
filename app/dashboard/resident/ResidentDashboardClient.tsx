@@ -3,21 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Users, CheckCircle, Clock, AlertCircle, Plus, ArrowRight, QrCode } from 'lucide-react'
+import { AlertCircle, Users, Clock, CheckCircle, Plus, ArrowRight, QrCode, CalendarClock, AlertTriangle } from 'lucide-react'
 import StatsCard from '@/components/shared/StatsCard'
 import StatusBadge from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatDate, formatTime, isPassExpired } from '@/lib/utils/guest-pass'
-import type { GuestPass } from '@/types'
+import type { GuestPass, DashboardStats } from '@/types'
 
 interface ResidentDashboardClientProps {
-  initialStats: {
-    totalGuests: number
-    activeGuests: number
-    expiredPasses: number
-    completedVisits: number
-  }
+  initialStats: DashboardStats
   recentPasses: GuestPass[]
 }
 
@@ -26,10 +21,10 @@ export default function ResidentDashboardClient({
   recentPasses,
 }: ResidentDashboardClientProps) {
   const stats = [
-    { title: 'Total Guests', value: initialStats.totalGuests, icon: Users, color: 'blue' as const },
-    { title: 'Active Passes', value: initialStats.activeGuests, icon: CheckCircle, color: 'green' as const },
-    { title: 'Expired Passes', value: initialStats.expiredPasses, icon: AlertCircle, color: 'amber' as const },
-    { title: 'Completed Visits', value: initialStats.completedVisits, icon: Clock, color: 'slate' as const },
+    { title: 'Upcoming', value: initialStats.upcomingCount ?? 0, icon: CalendarClock, color: 'blue' as const },
+    { title: 'Inside Now', value: initialStats.insideNow ?? 0, icon: Users, color: 'green' as const },
+    { title: 'Active Passes', value: initialStats.activeGuests, icon: CheckCircle, color: 'slate' as const },
+    { title: 'Penalties Due', value: initialStats.penaltiesDue ?? 0, icon: AlertTriangle, color: 'amber' as const },
   ]
 
   return (

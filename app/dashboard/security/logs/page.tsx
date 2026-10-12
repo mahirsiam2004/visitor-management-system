@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, LogOut } from 'lucide-react'
 import { getEntryLogs, checkOutGuest } from '@/app/actions/guest-passes'
 import { Button } from '@/components/ui/button'
 import StatusBadge from '@/components/shared/StatusBadge'
@@ -11,10 +11,9 @@ import DataTable from '@/components/shared/DataTable'
 import PageHeader from '@/components/layout/PageHeader'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePagination } from '@/hooks/usePagination'
-import { formatDateTime, calculateVisitDuration } from '@/lib/utils/guest-pass'
+import { calculateVisitDuration } from '@/lib/utils/guest-pass'
+import { formatDateTime, computeVisitStatus } from '@/lib/visit-status'
 import { PAGE_SIZE } from '@/constants'
-import { LogOut } from 'lucide-react'
-import { toast as sonnerToast } from 'sonner'
 
 export default function EntryLogsPage() {
   const [logs, setLogs] = useState<any[]>([])
@@ -62,10 +61,10 @@ export default function EntryLogsPage() {
     try {
       const result = await checkOutGuest({ entryLogId: logId })
       if (result.success) {
-        sonnerToast.success(`${guestName} checked out`)
+        toast.success(`${guestName} checked out`)
         fetchLogs()
       } else {
-        sonnerToast.error(result.error)
+        toast.error(result.error)
       }
     } finally {
       setCheckingOut(null)
@@ -128,20 +127,31 @@ export default function EntryLogsPage() {
     {
       key: 'actions',
       label: '',
-      render: (log: any) => (
-        log.status === 'inside' ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => handleCheckOut(log.id, log.guest_pass?.guest_name || 'Guest')}
-            disabled={checkingOut === log.id}
-          >
-            <LogOut className="h-3 w-3" />
-            Check Out
-          </Button>
-        ) : null
-      ),
+      render: (log: any) => {
+        const vs = computeVisitStatus(log)
+        if (!vs.showCheckOut) return null
+        return (
+          <div className="flex flex-col gap-1">
+            <Button
+              variant={vs.isOverstay ? 'default' : 'outline'}
+              size="sm"
+              className={`gap-1.5 text-xs min-h-[44px] ${
+                vs.isOverstay ? 'bg-red-600 hover:bg-red-700 text-white' : ''
+              }`}
+              onClick={() => handleCheckOut(log.id, log.guest_pass?.guest_name || 'Guest')}
+              disabled={checkingOut === log.id}
+            >
+              <LogOut className="h-3 w-3" />
+              {checkingOut === log.id ? 'Processing…' : 'Check Out'}
+            </Button>
+            {vs.isOverstay && (
+              <span className="text-xs font-bold text-red-700 bg-red-100 rounded px-2 py-0.5 text-center">
+                {vs.overstayLabel}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
   ]
 

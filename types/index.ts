@@ -391,6 +391,9 @@ export interface DashboardStats {
   usedPasses: number
   completedVisits: number
   overstayCount: number
+  insideNow: number
+  upcomingCount: number
+  penaltiesDue: number
 }
 
 export interface AdminStats {

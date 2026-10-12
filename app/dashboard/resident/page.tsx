@@ -17,7 +17,13 @@ export default async function ResidentDashboardPage() {
     totalGuests: 0,
     activeGuests: 0,
     expiredPasses: 0,
+    revokedPasses: 0,
+    usedPasses: 0,
     completedVisits: 0,
+    overstayCount: 0,
+    insideNow: 0,
+    upcomingCount: 0,
+    penaltiesDue: 0,
   }
 
   const passes = passesResult.success ? passesResult.data.data : []
