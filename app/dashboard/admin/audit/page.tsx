@@ -25,6 +25,7 @@ const AUDIT_ACTIONS = [
 export default function AuditLogPage() {
   const [logs, setLogs]         = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
   const [action, setAction]     = useState('')
   const [entity, setEntity]     = useState('')
   const [actorName, setActor]   = useState('')
@@ -35,28 +36,38 @@ export default function AuditLogPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const supabase = createClient()
-    const from = (page - 1) * pageSize
-    const to   = from + pageSize - 1
+    setError(null)
+    try {
+      const supabase = createClient()
+      const from = (page - 1) * pageSize
+      const to   = from + pageSize - 1
 
-    let q = supabase
-      .from('audit_log')
-      .select(`
-        id, action, entity_type, entity_id, metadata, ip_address, created_at,
-        actor:actor_id(full_name, role)
-      `, { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to)
+      let q = supabase
+        .from('audit_log')
+        .select(`
+          id, action, entity_type, entity_id, metadata, ip_address, created_at,
+          actor:actor_id(full_name, role)
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to)
 
-    if (action)   q = q.eq('action', action)
-    if (entity)   q = q.eq('entity_type', entity)
-    if (dateFrom) q = q.gte('created_at', dateFrom)
-    if (dateTo)   q = q.lte('created_at', dateTo + 'T23:59:59')
+      if (action)   q = q.eq('action', action)
+      if (entity)   q = q.eq('entity_type', entity)
+      if (dateFrom) q = q.gte('created_at', dateFrom)
+      if (dateTo)   q = q.lte('created_at', dateTo + 'T23:59:59')
 
-    const { data, count } = await q
-    setLogs(data || [])
-    setTotal(count || 0)
-    setLoading(false)
+      const { data, count, error: qErr } = await q
+      if (qErr) {
+        setError(qErr.message)
+      } else {
+        setLogs(data || [])
+        setTotal(count || 0)
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load audit logs')
+    } finally {
+      setLoading(false)
+    }
   }, [page, pageSize, action, entity, dateFrom, dateTo])
 
   useEffect(() => { load() }, [load])
@@ -165,6 +176,7 @@ export default function AuditLogPage() {
 
       <DataTable
         data={logs} columns={columns} loading={loading}
+        error={error} onRetry={load}
         total={total} page={page} pageSize={pageSize}
         onPageChange={goToPage} rowKey={(l: any) => l.id}
         emptyMessage="No audit log entries"

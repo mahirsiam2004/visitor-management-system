@@ -21,6 +21,8 @@ import { formatDateTime } from '@/lib/utils/guest-pass'
 import { RECURRING_VISITOR_ROLES, WEEKDAYS } from '@/constants'
 import { createClient } from '@/lib/supabase/client'
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 const EMPTY_FORM = {
   fullName: '', role: 'Maid / বুয়া', phone: '',
   validUntil: '', apartment: '',
@@ -32,6 +34,7 @@ export default function StaffPage() {
   const [visitors, setVisitors]   = useState<any[]>([])
   const [timeline, setTimeline]   = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
   const [showForm, setShowForm]   = useState(false)
   const [form, setForm]           = useState(EMPTY_FORM)
   const [saving, setSaving]       = useState(false)
@@ -40,13 +43,21 @@ export default function StaffPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [vRes, tRes] = await Promise.all([
-      getMyRecurringVisitors(),
-      getStaffTimeline(7),
-    ])
-    if (vRes.success) setVisitors(vRes.data)
-    if (tRes.success) setTimeline(tRes.data)
-    setLoading(false)
+    setError(null)
+    try {
+      const [vRes, tRes] = await Promise.all([
+        getMyRecurringVisitors(),
+        getStaffTimeline(7),
+      ])
+      if (vRes.success) setVisitors(vRes.data)
+      else setError(vRes.error)
+      if (tRes.success) setTimeline(tRes.data)
+      else if (!vRes.error) setError(tRes.error)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load staff records')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -137,7 +148,9 @@ export default function StaffPage() {
       </PageHeader>
 
       {/* ── Staff List ─────────────────────────────────────────────── */}
-      {loading ? (
+      {error ? (
+        <QueryErrorState message={error} onRetry={load} retrying={loading} />
+      ) : loading ? (
         <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />)}</div>
       ) : visitors.length === 0 ? (
         <Card className="p-10 text-center text-slate-400">

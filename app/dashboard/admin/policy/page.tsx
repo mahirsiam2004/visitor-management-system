@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Settings, Save } from 'lucide-react'
 import { getPolicy, updatePolicy } from '@/app/actions/policy'
@@ -30,18 +30,36 @@ const FIELDS: { key: keyof EditablePolicy; label: string; unit?: string; type?: 
   { key: 'sms_critical_only',                label: 'SMS for Critical Events Only',       type: 'checkbox' },
 ]
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function PolicyPage() {
   const [policy, setPolicy]   = useState<EditablePolicy | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
   const [saving, setSaving]   = useState(false)
 
-  useEffect(() => {
-    getPolicy().then((res) => {
-      if (res.success) setPolicy(res.data as EditablePolicy)
-      else toast.error(res.error)
-      setLoading(false)
-    })
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    getPolicy()
+      .then((res) => {
+        if (res.success) setPolicy(res.data as EditablePolicy)
+        else {
+          setError(res.error)
+          toast.error(res.error)
+        }
+      })
+      .catch((e: any) => {
+        setError(e?.message || 'Failed to load policy settings')
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const handleSave = async () => {
     if (!policy) return
@@ -53,7 +71,19 @@ export default function PolicyPage() {
   }
 
   if (loading) return <div className="p-8 text-center text-slate-400">Loading policy…</div>
-  if (!policy) return null
+  if (error || !policy) {
+    return (
+      <div className="p-6 lg:p-8 space-y-6 max-w-3xl mx-auto">
+        <PageHeader title="Policy Settings" description="Global configuration — all changes are audit logged" />
+        <QueryErrorState
+          title="Could not load policy settings"
+          message={error || 'Failed to retrieve configuration from database'}
+          onRetry={load}
+          retrying={loading}
+        />
+      </div>
+    )
+  }
 
   const sections = [
     { title: 'Overstay & Penalties', keys: ['overstay_grace_minutes','overstay_penalty_rate_bdt','overstay_notify_admin_after_minutes','ending_soon_warn_minutes','penalty_enabled'] },

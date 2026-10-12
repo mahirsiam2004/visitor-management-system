@@ -19,6 +19,7 @@ import { toast as sonnerToast } from 'sonner'
 export default function EntryLogsPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
@@ -27,6 +28,7 @@ export default function EntryLogsPage() {
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const result = await getEntryLogs({
         page,
@@ -37,8 +39,11 @@ export default function EntryLogsPage() {
         setLogs(result.data.data)
         setTotal(result.data.total)
       } else {
+        setError(result.error)
         toast.error(result.error)
       }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to fetch entry logs')
     } finally {
       setLoading(false)
     }
@@ -167,6 +172,8 @@ export default function EntryLogsPage() {
         data={logs}
         columns={columns}
         loading={loading}
+        error={error}
+        onRetry={fetchLogs}
         total={total}
         page={page}
         pageSize={pageSize}

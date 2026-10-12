@@ -33,31 +33,44 @@ const TYPE_COLORS: Record<string, string> = {
   minor_family: 'bg-pink-100 text-pink-700',
 }
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function LiveInsidePage() {
   const [entries, setEntries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState(new Date())
 
   const fetchLive = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('entry_logs')
-      .select(`
-        id, entry_time, expected_exit_at, overstay_started_at,
-        status, visitor_type, gate, shift,
-        guest_pass:guest_pass_id(
-          guest_name, guest_phone, apartment_number, purpose, guest_photo_url,
-          resident:resident_id(full_name, phone_number)
-        ),
-        security_guard:security_guard_id(full_name),
-        visit_request:visit_request_id(visitor_name, platform, type)
-      `)
-      .in('status', ['inside', 'overstay'])
-      .order('entry_time', { ascending: false })
+    try {
+      setError(null)
+      const supabase = createClient()
+      const { data, error: qErr } = await supabase
+        .from('entry_logs')
+        .select(`
+          id, entry_time, expected_exit_at, overstay_started_at,
+          status, visitor_type, gate, shift,
+          guest_pass:guest_pass_id(
+            guest_name, guest_phone, apartment_number, purpose, guest_photo_url,
+            resident:resident_id(full_name, phone_number)
+          ),
+          security_guard:security_guard_id(full_name),
+          visit_request:visit_request_id(visitor_name, platform, type)
+        `)
+        .in('status', ['inside', 'overstay'])
+        .order('entry_time', { ascending: false })
 
-    setEntries(data || [])
-    setLastRefresh(new Date())
-    setLoading(false)
+      if (qErr) {
+        setError(qErr.message)
+      } else {
+        setEntries(data || [])
+      }
+      setLastRefresh(new Date())
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load live entries')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchLive() }, [fetchLive])
@@ -111,7 +124,9 @@ export default function LiveInsidePage() {
         </Card>
       </div>
 
-      {loading ? (
+      {error ? (
+        <QueryErrorState message={error} onRetry={fetchLive} retrying={loading} />
+      ) : loading ? (
         <div className="space-y-3">
           {[1,2,3].map((i) => <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />)}
         </div>

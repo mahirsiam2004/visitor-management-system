@@ -415,7 +415,18 @@ export async function getAnalyticsData(params?: {
 
     // Visits by purpose
     const purposeMap: Record<string, number> = {}
-    passes.forEach((p) => { purposeMap[p.purpose] = (purposeMap[p.purpose] || 0) + 1 })
+    passes.forEach((p) => {
+      let purpose = p.purpose || 'Other'
+      if (typeof purpose === 'string' && purpose.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(purpose)
+          purpose = parsed.text || 'Other'
+        } catch {
+          // ignore
+        }
+      }
+      purposeMap[purpose] = (purposeMap[purpose] || 0) + 1
+    })
     const visitsByPurpose = Object.entries(purposeMap)
       .map(([purpose, count]) => ({ purpose, count }))
       .sort((a, b) => b.count - a.count)

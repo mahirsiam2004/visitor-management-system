@@ -28,9 +28,12 @@ const EMPTY_EVENT = {
   expectedCount: 20, maxCapacity: 30, notes: '',
 }
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function ResidentEventsPage() {
   const [events, setEvents]           = useState<any[]>([])
   const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState<string | null>(null)
   const [showCreate, setShowCreate]   = useState(false)
   const [creating, setCreating]       = useState(false)
   const [eventForm, setEventForm]     = useState(EMPTY_EVENT)
@@ -48,9 +51,16 @@ export default function ResidentEventsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await getMyEvents()
-    if (res.success) setEvents(res.data)
-    setLoading(false)
+    setError(null)
+    try {
+      const res = await getMyEvents()
+      if (res.success) setEvents(res.data)
+      else setError(res.error)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load events')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -136,7 +146,9 @@ export default function ResidentEventsPage() {
       </PageHeader>
 
       {/* Events list */}
-      {loading ? (
+      {error ? (
+        <QueryErrorState message={error} onRetry={load} retrying={loading} />
+      ) : loading ? (
         <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />)}</div>
       ) : events.length === 0 ? (
         <Card className="p-10 text-center text-slate-400">

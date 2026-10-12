@@ -23,12 +23,18 @@ interface DataTableProps<T> {
   onPageChange?: (page: number) => void
   emptyMessage?: string
   rowKey: (item: T) => string
+  error?: string | null
+  onRetry?: () => void
 }
+
+import QueryErrorState from '@/components/ui/query-error-state'
 
 export default function DataTable<T>({
   data,
   columns,
   loading = false,
+  error = null,
+  onRetry,
   total = 0,
   page = 1,
   pageSize = 10,
@@ -36,6 +42,16 @@ export default function DataTable<T>({
   emptyMessage = 'No data found',
   rowKey,
 }: DataTableProps<T>) {
+  if (error) {
+    return (
+      <QueryErrorState
+        message={error}
+        onRetry={onRetry || (() => {})}
+        retrying={loading}
+      />
+    )
+  }
+
   const totalPages = Math.ceil(total / pageSize)
   const startItem = (page - 1) * pageSize + 1
   const endItem = Math.min(page * pageSize, total)

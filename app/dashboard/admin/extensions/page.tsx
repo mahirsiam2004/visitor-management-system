@@ -11,19 +11,33 @@ import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
 import PageHeader from '@/components/layout/PageHeader'
 import { formatDateTime } from '@/lib/utils/guest-pass'
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function AdminExtensionsPage() {
   const [items, setItems]       = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
   const [acting, setActing]     = useState<string | null>(null)
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await getPendingExtensions()
-    if (res.success) setItems(res.data)
-    else toast.error(res.error)
-    setLoading(false)
+    setError(null)
+    try {
+      const res = await getPendingExtensions()
+      if (res.success) setItems(res.data)
+      else {
+        setError(res.error)
+        toast.error(res.error)
+      }
+    } catch (e: any) {
+      const msg = e?.message || 'Failed to load extensions'
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -49,15 +63,17 @@ export default function AdminExtensionsPage() {
     <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
       <PageHeader title="Extension Requests" description="Passes requiring admin approval for extensions (≥2nd extension)" />
 
-      {loading && <div className="text-center text-slate-400 py-8">Loading…</div>}
-      {!loading && items.length === 0 && (
+      {error && <QueryErrorState message={error} onRetry={load} retrying={loading} />}
+      {loading && !error && <div className="text-center text-slate-400 py-8">Loading…</div>}
+      {!loading && !error && items.length === 0 && (
         <Card className="p-10 text-center text-slate-400">
           <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p>No pending extension requests</p>
         </Card>
       )}
-      <div className="space-y-4">
-        {items.map((ext) => (
+      {!error && (
+        <div className="space-y-4">
+          {items.map((ext) => (
           <Card key={ext.id} className="p-5 border-blue-200">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">

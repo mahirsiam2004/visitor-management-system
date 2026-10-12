@@ -83,23 +83,35 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 // ─── Main page ─────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const [data, setData]       = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
   const [exporting, setExporting] = useState<'csv-passes' | 'csv-logs' | 'xlsx' | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const result = await getAnalyticsData({
-      dateFrom: dateFrom || undefined,
-      dateTo:   dateTo   || undefined,
-    })
-    if (result.success) setData(result.data)
-    else toast.error(result.error)
-    setLoading(false)
+    setError(null)
+    try {
+      const result = await getAnalyticsData({
+        dateFrom: dateFrom || undefined,
+        dateTo:   dateTo   || undefined,
+      })
+      if (result.success) setData(result.data)
+      else {
+        setError(result.error)
+        toast.error(result.error)
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load analytics')
+    } finally {
+      setLoading(false)
+    }
   }, [dateFrom, dateTo])
 
   useEffect(() => { load() }, [load])
@@ -237,7 +249,9 @@ export default function AnalyticsPage() {
         </div>
       </Card>
 
-      {loading ? (
+      {error ? (
+        <QueryErrorState message={error} onRetry={load} retrying={loading} />
+      ) : loading ? (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}

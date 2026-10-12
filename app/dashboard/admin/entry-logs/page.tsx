@@ -20,6 +20,7 @@ import { PAGE_SIZE } from '@/constants'
 export default function AdminEntryLogsPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -31,6 +32,7 @@ export default function AdminEntryLogsPage() {
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const result = await getEntryLogs({
         page, pageSize,
@@ -41,7 +43,12 @@ export default function AdminEntryLogsPage() {
       if (result.success) {
         setLogs(result.data.data)
         setTotal(result.data.total)
+      } else {
+        setError(result.error)
+        toast.error(result.error)
       }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load entry logs')
     } finally {
       setLoading(false)
     }
@@ -210,6 +217,8 @@ export default function AdminEntryLogsPage() {
         data={logs}
         columns={columns}
         loading={loading}
+        error={error}
+        onRetry={fetchLogs}
         total={total}
         page={page}
         pageSize={pageSize}

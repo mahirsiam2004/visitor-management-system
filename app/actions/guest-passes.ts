@@ -120,16 +120,16 @@ function parsePass(row: any): GuestPass {
     apartment_number: row.apartment_number,
     visit_date: row.visit_date,
     visit_time: row.visit_time,
-    valid_from: extra.valid_from || row.valid_from || null,
+    valid_from: row.valid_from || extra.valid_from || null,
     expiry_time: row.expiry_time,
     duration_hours: row.duration_hours,
     purpose: cleanPurpose,
     qr_token: row.qr_token,
-    gate_code: extra.gate_code || row.gate_code || null,
+    gate_code: row.gate_code || extra.gate_code || null,
     status: row.status,
-    allowed_persons: extra.allowed_persons || row.allowed_persons || 1,
-    entered_count: extra.entered_count || row.entered_count || 0,
-    guest_photo_url: extra.guest_photo_url || row.guest_photo_url || null,
+    allowed_persons: row.allowed_persons ?? extra.allowed_persons ?? 1,
+    entered_count: row.entered_count ?? extra.entered_count ?? 0,
+    guest_photo_url: row.guest_photo_url || row.guest_photo_path || extra.guest_photo_url || null,
     revoked_at: row.revoked_at || null,
     revoked_by: row.revoked_by || null,
     revoke_reason: row.revoke_reason || null,
@@ -169,38 +169,43 @@ export async function createGuestPass(input: unknown): Promise<ActionResult<Gues
     const expiryTime = calculateExpiryTime(validated.visitDate, validated.visitTime, validated.durationHours)
     const validFrom  = calculateValidFrom(validated.visitDate, validated.visitTime, VALID_FROM_BUFFER_MINUTES)
 
-    // Store optional extra attributes inside JSON in the purpose column
-    const purposePayload = (validated.guestPhotoUrl || validated.allowedPersons > 1 || gateCode)
-      ? JSON.stringify({
-          text: validated.purpose,
-          guest_photo_url: validated.guestPhotoUrl || null,
-          allowed_persons: validated.allowedPersons || 1,
-          gate_code: gateCode,
-          valid_from: validFrom.toISOString(),
-          companions: validated.companions || [],
-        })
-      : validated.purpose
-
     const { data, error } = await supabase
       .from('guest_passes')
       .insert({
-        guest_id:        guestId,
-        guest_name:      validated.guestName,
-        guest_phone:     validated.guestPhone || null,
-        resident_id:     user.id,
+        guest_id:         guestId,
+        guest_name:       validated.guestName,
+        guest_phone:      validated.guestPhone || null,
+        resident_id:      user.id,
         apartment_number: fullProfile.apartment_number,
-        visit_date:      validated.visitDate,
-        visit_time:      validated.visitTime,
-        expiry_time:     expiryTime.toISOString(),
-        duration_hours:  validated.durationHours,
-        purpose:         purposePayload,
-        qr_token:        qrToken,
-        status:          'valid',
+        visit_date:       validated.visitDate,
+        visit_time:       validated.visitTime,
+        expiry_time:      expiryTime.toISOString(),
+        duration_hours:   validated.durationHours,
+        purpose:          validated.purpose,
+        qr_token:         qrToken,
+        gate_code:        gateCode,
+        valid_from:       validFrom.toISOString(),
+        allowed_persons:  validated.allowedPersons || 1,
+        entered_count:    0,
+        guest_photo_url:  validated.guestPhotoUrl || null,
+        guest_photo_path: validated.guestPhotoUrl || null,
+        status:           'valid',
       })
       .select()
       .single()
 
     if (error) return { success: false, error: error.message }
+
+    // If companions were registered, insert them into guest_pass_members
+    if (validated.companions && validated.companions.length > 0) {
+      const memberRows = validated.companions.map((c) => ({
+        guest_pass_id: data.id,
+        full_name:     c.fullName,
+        relation:      c.relation,
+        is_minor:      Boolean(c.isMinor),
+      }))
+      await supabase.from('guest_pass_members').insert(memberRows)
+    }
 
     await writeAuditLog({
       supabase, actor_id: user.id, actor_role: profile.role,
@@ -512,14 +517,22 @@ export async function checkInGuest(input: unknown): Promise<ActionResult<EntryLo
     let guestPassRow: any = null
 
     if (isGateCode) {
-      // Find pass where purpose includes this gate_code
-      const { data: passes } = await supabase.from('guest_passes').select('*')
-      guestPassRow = (passes || []).find((p: any) => {
-        const parsed = parsePass(p)
-        return parsed.gate_code === tokenClean
-      })
+      const { data } = await supabase
+        .from('guest_passes')
+        .select('*')
+        .eq('gate_code', tokenClean)
+        .is('archived_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      guestPassRow = data
     } else {
-      const { data } = await supabase.from('guest_passes').select('*').eq('qr_token', tokenClean).maybeSingle()
+      const { data } = await supabase
+        .from('guest_passes')
+        .select('*')
+        .eq('qr_token', tokenClean)
+        .is('archived_at', null)
+        .maybeSingle()
       guestPassRow = data
     }
 

@@ -22,6 +22,7 @@ import { PAGE_SIZE } from '@/constants'
 export default function AdminGuestPassesPage() {
   const [passes, setPasses] = useState<GuestPass[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [archiveTarget, setArchiveTarget] = useState<GuestPass | null>(null)
@@ -33,12 +34,18 @@ export default function AdminGuestPassesPage() {
 
   const fetchPasses = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const result = await getGuestPasses({ page, pageSize, search: debouncedSearch, status: statusFilter })
       if (result.success) {
         setPasses(result.data.data)
         setTotal(result.data.total)
+      } else {
+        setError(result.error)
+        toast.error(result.error)
       }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load guest passes')
     } finally {
       setLoading(false)
     }
@@ -175,6 +182,8 @@ export default function AdminGuestPassesPage() {
         data={passes}
         columns={columns}
         loading={loading}
+        error={error}
+        onRetry={fetchPasses}
         total={total}
         page={page}
         pageSize={pageSize}

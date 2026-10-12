@@ -22,10 +22,13 @@ const STATUS_COLORS: Record<string, string> = {
   added_to_bill: 'bg-slate-100 text-slate-600 border-slate-200',
 }
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function AdminPenaltiesPage() {
   const [penalties, setPenalties] = useState<any[]>([])
   const [summary, setSummary]     = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
   const [statusFilter, setStatus] = useState('')
   const [monthFilter, setMonth]   = useState(new Date().toISOString().slice(0, 7))
   const [waiveTarget, setWaiveTarget] = useState<any | null>(null)
@@ -36,13 +39,25 @@ export default function AdminPenaltiesPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [penRes, sumRes] = await Promise.all([
-      getAllPenalties({ page, status: statusFilter || undefined, monthYear: monthFilter || undefined }),
-      getMonthlySummary(monthFilter || undefined),
-    ])
-    if (penRes.success) { setPenalties(penRes.data.data); setTotal(penRes.data.total) }
-    if (sumRes.success) setSummary(sumRes.data)
-    setLoading(false)
+    setError(null)
+    try {
+      const [penRes, sumRes] = await Promise.all([
+        getAllPenalties({ page, status: statusFilter || undefined, monthYear: monthFilter || undefined }),
+        getMonthlySummary(monthFilter || undefined),
+      ])
+      if (penRes.success) {
+        setPenalties(penRes.data.data)
+        setTotal(penRes.data.total)
+      } else {
+        setError(penRes.error)
+        toast.error(penRes.error)
+      }
+      if (sumRes.success) setSummary(sumRes.data)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load penalties')
+    } finally {
+      setLoading(false)
+    }
   }, [page, statusFilter, monthFilter])
 
   useEffect(() => { load() }, [load])
@@ -178,6 +193,8 @@ export default function AdminPenaltiesPage() {
           </div>
         </Card>
       )}
+
+      {error && <QueryErrorState message={error} onRetry={load} retrying={loading} />}
 
       <DataTable
         data={penalties} columns={columns} loading={loading}

@@ -11,19 +11,31 @@ import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
 import PageHeader from '@/components/layout/PageHeader'
 import { formatDate, formatTime } from '@/lib/utils/guest-pass'
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function AdminEventsPage() {
   const [events, setEvents]       = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
   const [rejectTarget, setRejectTarget] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [acting, setActing]       = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await getEventsForApproval()
-    if (res.success) setEvents(res.data)
-    else toast.error(res.error)
-    setLoading(false)
+    setError(null)
+    try {
+      const res = await getEventsForApproval()
+      if (res.success) setEvents(res.data)
+      else {
+        setError(res.error)
+        toast.error(res.error)
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load events')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -49,7 +61,9 @@ export default function AdminEventsPage() {
     <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
       <PageHeader title="Event Approvals" description="Events requiring admin approval (>50 guests)" />
 
-      {loading ? (
+      {error ? (
+        <QueryErrorState message={error} onRetry={load} retrying={loading} />
+      ) : loading ? (
         <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-slate-100 animate-pulse" />)}</div>
       ) : events.length === 0 ? (
         <Card className="p-10 text-center text-slate-400">

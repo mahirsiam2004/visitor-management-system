@@ -12,22 +12,32 @@ import EmptyState from '@/components/shared/EmptyState'
 import PageHeader from '@/components/layout/PageHeader'
 import { formatDateTime, calculateVisitDuration, getOverstayMinutes } from '@/lib/utils/guest-pass'
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function TodaysVisitorsPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [overstays, setOverstays] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
 
   const fetchVisitors = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const [todayRes, overstayRes] = await Promise.all([
         getTodaysVisitors(),
         getOverstays(),
       ])
       if (todayRes.success) setLogs(todayRes.data)
-      else toast.error(todayRes.error)
+      else {
+        setError(todayRes.error)
+        toast.error(todayRes.error)
+      }
       if (overstayRes.success) setOverstays(overstayRes.data)
+      else if (!todayRes.error) setError(overstayRes.error)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load visitors')
     } finally {
       setLoading(false)
     }
@@ -96,7 +106,9 @@ export default function TodaysVisitorsPage() {
         </Card>
       </div>
 
-      {loading ? (
+      {error ? (
+        <QueryErrorState message={error} onRetry={fetchVisitors} retrying={loading} />
+      ) : loading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} className="p-4">

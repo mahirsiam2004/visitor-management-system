@@ -21,6 +21,7 @@ import { PAGE_SIZE } from '@/constants'
 export default function ResidentsPage() {
   const [residents, setResidents] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [showInactive, setShowInactive] = useState(false)
   const [deactivateTarget, setDeactivateTarget] = useState<Profile | null>(null)
@@ -32,6 +33,7 @@ export default function ResidentsPage() {
 
   const fetchResidents = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const result = await getAllProfiles({
         page, pageSize, search: debouncedSearch,
@@ -41,8 +43,11 @@ export default function ResidentsPage() {
         setResidents(result.data.data)
         setTotal(result.data.total)
       } else {
+        setError(result.error)
         toast.error(result.error)
       }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load residents')
     } finally {
       setLoading(false)
     }
@@ -198,6 +203,8 @@ export default function ResidentsPage() {
         data={residents}
         columns={columns}
         loading={loading}
+        error={error}
+        onRetry={fetchResidents}
         total={total}
         page={page}
         pageSize={pageSize}

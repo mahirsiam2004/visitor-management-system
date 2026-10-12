@@ -14,11 +14,14 @@ import PageHeader from '@/components/layout/PageHeader'
 import { formatDate } from '@/lib/utils/guest-pass'
 import { PAGE_SIZE } from '@/constants'
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 const EMPTY_FORM = { name: '', phone: '', reason: '', scope: 'building' as 'building' | 'apartment', apartment: '' }
 
 export default function BlacklistPage() {
   const [entries, setEntries]     = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
   const [showForm, setShowForm]   = useState(false)
   const [form, setForm]           = useState(EMPTY_FORM)
   const [saving, setSaving]       = useState(false)
@@ -27,10 +30,19 @@ export default function BlacklistPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await getBlacklist(false)
-    if (res.success) setEntries(res.data)
-    else toast.error(res.error)
-    setLoading(false)
+    setError(null)
+    try {
+      const res = await getBlacklist(false)
+      if (res.success) setEntries(res.data)
+      else {
+        setError(res.error)
+        toast.error(res.error)
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load blacklist')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -115,6 +127,8 @@ export default function BlacklistPage() {
           <Plus className="h-4 w-4" /> Add Entry
         </Button>
       </PageHeader>
+
+      {error && <QueryErrorState message={error} onRetry={load} retrying={loading} />}
 
       <DataTable
         data={entries}

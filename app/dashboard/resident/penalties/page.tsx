@@ -20,27 +20,41 @@ const STATUS_COLORS: Record<string, string> = {
   added_to_bill: 'bg-slate-100 text-slate-600 border-slate-200',
 }
 
+import QueryErrorState from '@/components/ui/query-error-state'
+
 export default function MyPenaltiesPage() {
   const [penalties, setPenalties]   = useState<any[]>([])
   const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
   const [statusFilter, setStatus]   = useState('')
   const [totalPending, setTotalPending] = useState(0)
   const { page, pageSize, total, setTotal, goToPage, setPage } = usePagination({ pageSize: PAGE_SIZE })
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [res, pendingRes] = await Promise.all([
-      getMyPenalties({ page, status: statusFilter || undefined }),
-      getMyPenalties({ status: 'pending' }),
-    ])
-    if (res.success) { setPenalties(res.data.data); setTotal(res.data.total) }
-    else toast.error(res.error)
-    if (pendingRes.success) {
-      setTotalPending(
-        pendingRes.data.data.reduce((sum, p) => sum + Number(p.amount_bdt), 0)
-      )
+    setError(null)
+    try {
+      const [res, pendingRes] = await Promise.all([
+        getMyPenalties({ page, status: statusFilter || undefined }),
+        getMyPenalties({ status: 'pending' }),
+      ])
+      if (res.success) {
+        setPenalties(res.data.data)
+        setTotal(res.data.total)
+      } else {
+        setError(res.error)
+        toast.error(res.error)
+      }
+      if (pendingRes.success) {
+        setTotalPending(
+          pendingRes.data.data.reduce((sum, p) => sum + Number(p.amount_bdt), 0)
+        )
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load penalties')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [page, statusFilter])
 
   useEffect(() => { load() }, [load])
@@ -128,6 +142,8 @@ export default function MyPenaltiesPage() {
       <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-700">
         Penalties are calculated at the building's rate per hour of overstay. Amounts are recorded only — no online payment required. They are added to your monthly service charge by the building management. You may contact the admin to waive a penalty.
       </div>
+
+      {error && <QueryErrorState message={error} onRetry={load} retrying={loading} />}
 
       <DataTable
         data={penalties} columns={columns} loading={loading}
