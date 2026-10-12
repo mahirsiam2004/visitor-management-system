@@ -11,6 +11,11 @@ import type {
 } from '@/types'
 import { PAGE_SIZE } from '@/constants'
 import { writeAuditLog } from './audit'
+import {
+  DHAKA_TZ,
+  getDhakaDateOf,
+  computeVisitStatus,
+} from '@/lib/visit-status'
 
 // ----------------------------------------------------------------
 // Internal guard
@@ -393,7 +398,7 @@ export async function getAnalyticsData(params?: {
 
       supabase
         .from('entry_logs')
-        .select('id, entry_time, exit_time, status, guest_pass_id')
+        .select('id, entry_time, exit_time, status, guest_pass_id, checkout_type, expected_exit_at')
         .gte('entry_time', fromDate.toISOString())
         .lte('entry_time', toDate.toISOString())
         .order('entry_time', { ascending: true }),
@@ -402,10 +407,10 @@ export async function getAnalyticsData(params?: {
     const passes = passesResult.data || []
     const logs = logsResult.data || []
 
-    // Passes per day (keyed by YYYY-MM-DD in UTC)
+    // Passes per day (keyed by YYYY-MM-DD in Dhaka timezone)
     const passesPerDayMap: Record<string, number> = {}
     passes.forEach((p) => {
-      const isoDate = p.created_at.slice(0, 10) // UTC date
+      const isoDate = getDhakaDateOf(p.created_at)
       passesPerDayMap[isoDate] = (passesPerDayMap[isoDate] || 0) + 1
     })
     const passesPerDay = Object.entries(passesPerDayMap).map(([isoDate, count]) => ({
@@ -446,14 +451,20 @@ export async function getAnalyticsData(params?: {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10)
 
-    // Entry vs exit by hour (0-23)
+    // Entry vs exit by hour (0-23) in Dhaka timezone
     const hourMap: Record<number, { entries: number; exits: number }> = {}
     for (let h = 0; h < 24; h++) hourMap[h] = { entries: 0, exits: 0 }
     logs.forEach((l) => {
-      const entryHour = new Date(l.entry_time).getUTCHours()
+      const entryHour = parseInt(
+        new Date(l.entry_time).toLocaleString('en-US', { timeZone: DHAKA_TZ, hour: 'numeric', hour12: false }),
+        10
+      )
       hourMap[entryHour].entries += 1
       if (l.exit_time) {
-        const exitHour = new Date(l.exit_time).getUTCHours()
+        const exitHour = parseInt(
+          new Date(l.exit_time).toLocaleString('en-US', { timeZone: DHAKA_TZ, hour: 'numeric', hour12: false }),
+          10
+        )
         hourMap[exitHour].exits += 1
       }
     })
@@ -464,11 +475,12 @@ export async function getAnalyticsData(params?: {
       exits: v.exits,
     }))
 
-    // Monthly visitors (last 12 months)
+    // Monthly visitors (last 12 months) in Dhaka timezone
     const monthMap: Record<string, number> = {}
     logs.forEach((l) => {
-      const d = new Date(l.entry_time)
-      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+      const key = new Date(l.entry_time).toLocaleDateString('en-CA', {
+        timeZone: DHAKA_TZ, year: 'numeric', month: '2-digit',
+      }).slice(0, 7) // 'YYYY-MM' in Dhaka
       monthMap[key] = (monthMap[key] || 0) + 1
     })
     const monthlyVisitors = Object.entries(monthMap)
@@ -491,8 +503,8 @@ export async function getAnalyticsData(params?: {
       .sort((a, b) => b.visit_count - a.visit_count)
       .slice(0, 10)
 
-    // Avg stay duration (only completed)
-    const completedLogs = logs.filter((l) => l.status === 'completed' && l.exit_time)
+    // Avg stay duration — only completed manual checkouts, excluding auto_closed legacy rows
+    const completedLogs = logs.filter((l) => l.exit_time && l.checkout_type !== 'auto_closed')
     const avgStayMinutes = completedLogs.length > 0
       ? Math.round(
           completedLogs.reduce((sum, l) => {
@@ -502,7 +514,8 @@ export async function getAnalyticsData(params?: {
         )
       : 0
 
-    const overstayCount = logs.filter((l) => l.status === 'overstay').length
+    // overstayCount: visitors currently inside AND past grace (computed, not from stored status)
+    const overstayCount = logs.filter((l) => computeVisitStatus(l as any).isOverstay).length
     const totalEntries = logs.length
     const totalExits = logs.filter((l) => l.exit_time).length
 

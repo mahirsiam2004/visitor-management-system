@@ -3,18 +3,22 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Scan, Users, CheckCircle, Clock, AlertTriangle, Phone, ArrowRight, LogOut, UserX } from 'lucide-react'
+import { Scan, Users, CheckCircle, Clock, AlertTriangle, Phone, ArrowRight, LogOut } from 'lucide-react'
 import StatsCard from '@/components/shared/StatsCard'
 import StatusBadge from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { formatDateTime, getOverstayMinutes } from '@/lib/utils/guest-pass'
+import { formatDateTime } from '@/lib/utils/guest-pass'
+import { computeVisitStatus } from '@/lib/visit-status'
 import { checkOutGuest } from '@/app/actions/guest-passes'
 import { toast } from 'sonner'
+import type { EntryLogStatus } from '@/types'
 
 interface OverstayEntry {
   id: string
   entry_time: string
+  exit_time: string | null
+  status: EntryLogStatus
   expected_exit_at: string | null
   overstay_started_at: string | null
   guest_pass: {
@@ -41,12 +45,12 @@ interface SecurityDashboardClientProps {
 export default function SecurityDashboardClient({
   insideNow, completedToday, totalToday, overstayCount, recentLogs, overstays,
 }: SecurityDashboardClientProps) {
-  const [askingToLeave, setAskingToLeave] = useState<string | null>(null)
+  const [checkingOut, setCheckingOut] = useState<string | null>(null)
 
-  const handleAskToLeave = async (entryLogId: string, guestName: string) => {
-    setAskingToLeave(entryLogId)
+  const handleCheckOut = async (entryLogId: string, guestName: string) => {
+    setCheckingOut(entryLogId)
     const res = await checkOutGuest({ entryLogId })
-    setAskingToLeave(null)
+    setCheckingOut(null)
     if (res.success) toast.success(`${guestName} checked out`)
     else toast.error(res.error)
   }
@@ -109,9 +113,7 @@ export default function SecurityDashboardClient({
           </div>
           <div className="space-y-3">
             {overstays.map((entry) => {
-              const minsOver = entry.expected_exit_at
-                ? getOverstayMinutes(entry.expected_exit_at)
-                : 0
+              const vs = computeVisitStatus(entry)
               const residentPhone = entry.guest_pass?.resident?.phone_number
 
               return (
@@ -140,7 +142,7 @@ export default function SecurityDashboardClient({
                           <span>Expected out: {formatDateTime(entry.expected_exit_at)}</span>
                         )}
                         <span className="text-red-800 font-bold">
-                          {minsOver} min over
+                          {vs.overstayLabel || 'Overstaying'}
                         </span>
                       </div>
                       {entry.guest_pass?.resident && (
@@ -167,13 +169,12 @@ export default function SecurityDashboardClient({
                       )}
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50 h-10 px-4"
-                        onClick={() => handleAskToLeave(entry.id, entry.guest_pass?.guest_name ?? 'Guest')}
-                        disabled={askingToLeave === entry.id}
+                        className="gap-1.5 bg-red-600 hover:bg-red-700 text-white h-10 px-4"
+                        onClick={() => handleCheckOut(entry.id, entry.guest_pass?.guest_name ?? 'Guest')}
+                        disabled={checkingOut === entry.id}
                       >
-                        <UserX className="h-4 w-4" />
-                        {askingToLeave === entry.id ? 'Processing…' : 'Ask to Leave'}
+                        <LogOut className="h-4 w-4" />
+                        {checkingOut === entry.id ? 'Processing…' : 'Check Out'}
                       </Button>
                     </div>
                   </div>

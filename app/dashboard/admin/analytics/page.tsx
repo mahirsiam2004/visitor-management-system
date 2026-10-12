@@ -310,7 +310,7 @@ export default function AnalyticsPage() {
           {/* ── 2. Entry vs Exit by hour (line chart) ── */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Entry vs Exit by Hour (UTC)</CardTitle>
+              <CardTitle className="text-base">Entry vs Exit by Hour (Dhaka time)</CardTitle>
             </CardHeader>
             <CardContent>
               {data.entryExitByHour.every((h) => h.entries === 0 && h.exits === 0) ? <EmptyChart /> : (

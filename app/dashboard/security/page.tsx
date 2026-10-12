@@ -1,4 +1,5 @@
 import { getTodaysVisitors, getOverstays } from '@/app/actions/guest-passes'
+import { countInsideNow, countCompletedToday } from '@/lib/visit-status'
 import SecurityDashboardClient from './SecurityDashboardClient'
 
 export const dynamic = 'force-dynamic'
@@ -12,8 +13,8 @@ export default async function SecurityDashboardPage() {
   const todaysVisitors = todayResult.success ? todayResult.data : []
   const overstays = overstayResult.success ? overstayResult.data : []
 
-  const insideNow      = todaysVisitors.filter((v: any) => v.status === 'inside').length
-  const completedToday = todaysVisitors.filter((v: any) => v.status === 'completed').length
+  const insideNow      = countInsideNow(todaysVisitors)
+  const completedToday = countCompletedToday(todaysVisitors)
   const overstayCount  = overstays.length
 
   return (
