@@ -313,6 +313,7 @@ export async function checkInEventGuest(input: {
 
       await supabase.from('entry_logs').insert({
         security_guard_id: user.id,
+        guard_id:          user.id,
         entry_time:        now.toISOString(),
         expected_exit_at:  eventEnd.toISOString(),
         status:            'inside',
@@ -367,6 +368,7 @@ export async function checkInEventGuest(input: {
 
     await supabase.from('entry_logs').insert({
       security_guard_id: user.id,
+      guard_id:          user.id,
       entry_time:        now.toISOString(),
       expected_exit_at:  eventEnd.toISOString(),
       status:            'inside',

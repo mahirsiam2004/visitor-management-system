@@ -15,6 +15,12 @@ import {
   checkOutGuestSchema,
   revokePassSchema,
 } from '@/lib/validations/schemas'
+import {
+  getDhakaToday,
+  getDhakaDateOf,
+  computeVisitStatus,
+  DEFAULT_OVERSTAY_GRACE_MINUTES,
+} from '@/lib/visit-status'
 import { revalidatePath } from 'next/cache'
 import type {
   ActionResult,
@@ -97,7 +103,7 @@ async function logAccessAttempt(
 }
 
 // ─── Pass parser helper (extracts JSON-encoded metadata if present) ─────────
-function parsePass(row: any): GuestPass {
+export function parsePass(row: any): GuestPass {
   if (!row) return row
   let extra: any = {}
   let cleanPurpose = row.purpose || ''
@@ -105,7 +111,7 @@ function parsePass(row: any): GuestPass {
   if (typeof row.purpose === 'string' && row.purpose.startsWith('{')) {
     try {
       extra = JSON.parse(row.purpose)
-      cleanPurpose = extra.text || cleanPurpose
+      cleanPurpose = extra.text || extra.purpose || cleanPurpose
     } catch {
       // not JSON
     }
@@ -138,6 +144,31 @@ function parsePass(row: any): GuestPass {
     archive_reason: row.archive_reason || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
+  }
+}
+
+// ─── Entry log parser helper (normalizes real columns and plain-text notes) ─
+export function parseLog(row: any): any {
+  if (!row) return row
+  let cleanNotes = row.notes || ''
+  if (typeof cleanNotes === 'string' && cleanNotes.startsWith('{')) {
+    try {
+      const n = JSON.parse(cleanNotes)
+      cleanNotes = n.text || n.notes || ''
+    } catch {
+      // not JSON
+    }
+  }
+  return {
+    ...row,
+    notes: cleanNotes,
+    persons_admitted: row.persons_admitted ?? 1,
+    id_type: row.id_type || row.identity_id_type || null,
+    identity_id_type: row.identity_id_type || row.id_type || null,
+    entry_photo_url: row.entry_photo_url || row.entry_photo_path || null,
+    entry_photo_path: row.entry_photo_path || row.entry_photo_url || null,
+    expected_exit_at: row.expected_exit_at || null,
+    checkout_type: row.checkout_type || null,
   }
 }
 
@@ -601,9 +632,12 @@ export async function checkInGuest(input: unknown): Promise<ActionResult<EntryLo
         expected_exit_at:  guestPass.expiry_time,
         visitor_type:      'one_time',
         id_type:           validated.idType || null,
+        identity_id_type:  validated.idType || null,
         identity_verified: validated.identityVerified ?? false,
         persons_admitted:  personsAdmitted,
         entry_photo_url:   validated.entryPhotoUrl || null,
+        entry_photo_path:  validated.entryPhotoUrl || null,
+        notes:             null,
       })
       .select()
       .single()
@@ -825,19 +859,17 @@ export async function getEntryLogs(params?: {
     if (error) return { success: false, error: error.message }
 
     const formatted = (data || []).map((row: any) => {
-      const pass = parsePass(row.guest_pass)
-      let notesData: any = {}
-      if (row.notes && row.notes.startsWith('{')) {
-        try { notesData = JSON.parse(row.notes) } catch {}
-      }
-      const isOverstay = row.status === 'inside' && pass?.expiry_time && new Date(pass.expiry_time) < new Date()
+      const pass = row.guest_pass ? parsePass(row.guest_pass) : null
+      const parsedLog = parseLog(row)
+      const expectedExit = parsedLog.expected_exit_at || pass?.expiry_time || null
+      const vs = computeVisitStatus({
+        ...parsedLog,
+        expected_exit_at: expectedExit,
+      })
       return {
-        ...row,
-        status: isOverstay ? 'overstay' : row.status,
-        expected_exit_at: notesData.expected_exit_at || pass?.expiry_time || null,
-        persons_admitted: notesData.persons_admitted || 1,
-        id_type: notesData.id_type || null,
-        entry_photo_url: notesData.entry_photo_url || null,
+        ...parsedLog,
+        status: vs.isOverstay ? 'overstay' : parsedLog.status,
+        expected_exit_at: expectedExit,
         guest_pass: pass,
       }
     })
@@ -853,16 +885,14 @@ export async function getEntryLogs(params?: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET TODAY'S VISITORS
+// GET TODAY'S VISITORS (Asia/Dhaka Calendar Day)
 // ═══════════════════════════════════════════════════════════════════════════
 export async function getTodaysVisitors(): Promise<ActionResult<any[]>> {
   try {
     const { supabase, profile } = await requireAuth()
     if (!['security', 'admin'].includes(profile.role)) return { success: false, error: 'Unauthorized' }
 
-    const now = new Date()
-    const startOfDayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const endOfDayUTC   = new Date(startOfDayUTC.getTime() + 24 * 60 * 60 * 1000 - 1)
+    const dhakaToday = getDhakaToday()
 
     const { data, error } = await supabase
       .from('entry_logs')
@@ -875,24 +905,22 @@ export async function getTodaysVisitors(): Promise<ActionResult<any[]>> {
         ),
         security_guard:security_guard_id ( full_name )
       `)
-      .gte('entry_time', startOfDayUTC.toISOString())
-      .lte('entry_time', endOfDayUTC.toISOString())
       .order('entry_time', { ascending: false })
+      .limit(300)
 
     if (error) return { success: false, error: error.message }
 
-    const formatted = (data || []).map((row: any) => {
-      const pass = parsePass(row.guest_pass)
-      let notesData: any = {}
-      if (row.notes && row.notes.startsWith('{')) {
-        try { notesData = JSON.parse(row.notes) } catch {}
-      }
-      return {
-        ...row,
-        expected_exit_at: notesData.expected_exit_at || pass?.expiry_time,
-        guest_pass: pass,
-      }
-    })
+    const formatted = (data || [])
+      .filter((row: any) => getDhakaDateOf(row.entry_time) === dhakaToday)
+      .map((row: any) => {
+        const pass = row.guest_pass ? parsePass(row.guest_pass) : null
+        const parsedLog = parseLog(row)
+        return {
+          ...parsedLog,
+          expected_exit_at: parsedLog.expected_exit_at || pass?.expiry_time || null,
+          guest_pass: pass,
+        }
+      })
 
     return { success: true, data: formatted }
   } catch (error: unknown) {
@@ -902,7 +930,7 @@ export async function getTodaysVisitors(): Promise<ActionResult<any[]>> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GET OVERSTAYS
+// GET OVERSTAYS (Single Source of Truth via computeVisitStatus)
 // ═══════════════════════════════════════════════════════════════════════════
 export async function getOverstays(): Promise<ActionResult<any[]>> {
   try {
@@ -919,19 +947,24 @@ export async function getOverstays(): Promise<ActionResult<any[]>> {
           resident:resident_id ( id, full_name, phone_number )
         )
       `)
-      .eq('status', 'inside')
+      .is('exit_time', null)
       .order('entry_time', { ascending: true })
 
     if (error) return { success: false, error: error.message }
 
-    const now = new Date()
     const overstays = (data || [])
-      .map((row: any) => ({
-        ...row,
-        guest_pass: parsePass(row.guest_pass),
-      }))
+      .map((row: any) => {
+        const pass = row.guest_pass ? parsePass(row.guest_pass) : null
+        const parsedLog = parseLog(row)
+        return {
+          ...parsedLog,
+          expected_exit_at: parsedLog.expected_exit_at || pass?.expiry_time || null,
+          guest_pass: pass,
+        }
+      })
       .filter((row: any) => {
-        return row.guest_pass?.expiry_time && new Date(row.guest_pass.expiry_time) < now
+        if (!row.expected_exit_at) return false
+        return computeVisitStatus(row).isOverstay
       })
 
     return { success: true, data: overstays }

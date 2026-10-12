@@ -424,7 +424,7 @@ export async function getAnalyticsData(params?: {
       if (typeof purpose === 'string' && purpose.startsWith('{')) {
         try {
           const parsed = JSON.parse(purpose)
-          purpose = parsed.text || 'Other'
+          purpose = parsed.text || parsed.purpose || 'Other'
         } catch {
           // ignore
         }

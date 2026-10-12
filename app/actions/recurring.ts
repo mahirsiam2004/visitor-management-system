@@ -218,12 +218,16 @@ export async function checkInRecurringVisitor(input: {
       .insert({
         recurring_visitor_id: visitor.id,
         security_guard_id:    user.id,
+        guard_id:             user.id,
         entry_time:           new Date().toISOString(),
+        expected_exit_at:     new Date(Date.now() + 8 * 3600 * 1000).toISOString(),
         status:               'inside',
         visitor_type:         'recurring',
         id_type:              input.idType,
+        identity_id_type:     input.idType,
         identity_verified:    input.identityVerified,
         entry_photo_url:      input.entryPhotoUrl || null,
+        entry_photo_path:     input.entryPhotoUrl || null,
         persons_admitted:     1,
         notes:                warning ? `Schedule override: ${warning}` : null,
       })

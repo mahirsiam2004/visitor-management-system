@@ -286,7 +286,9 @@ export async function createEmergencyEntry(input: {
       .insert({
         visit_request_id:  req.id,
         security_guard_id: user.id,
+        guard_id:          user.id,
         entry_time:        now.toISOString(),
+        expected_exit_at:  new Date(now.getTime() + 4 * 3600 * 1000).toISOString(),
         status:            'inside',
         visitor_type:      'emergency',
         identity_verified: false,
@@ -413,13 +415,16 @@ export async function checkInFromRequest(input: {
       .insert({
         visit_request_id:  req.id,
         security_guard_id: user.id,
+        guard_id:          user.id,
         entry_time:        now.toISOString(),
         expected_exit_at:  req.entry_allowed_until,
         status:            'inside',
         visitor_type:      req.type === 'delivery' ? 'delivery' : 'walk_in',
         id_type:           input.idType,
+        identity_id_type:  input.idType,
         identity_verified: input.identityVerified,
         entry_photo_url:   input.entryPhotoUrl || null,
+        entry_photo_path:  input.entryPhotoUrl || null,
         persons_admitted:  1,
       })
       .select('id').single()
