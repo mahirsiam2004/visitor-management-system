@@ -103,7 +103,7 @@ async function logAccessAttempt(
 }
 
 // ─── Pass parser helper (extracts JSON-encoded metadata if present) ─────────
-export function parsePass(row: any): GuestPass {
+function parsePass(row: any): GuestPass {
   if (!row) return row
   let extra: any = {}
   let cleanPurpose = row.purpose || ''
@@ -148,7 +148,7 @@ export function parsePass(row: any): GuestPass {
 }
 
 // ─── Entry log parser helper (normalizes real columns and plain-text notes) ─
-export function parseLog(row: any): any {
+function parseLog(row: any): any {
   if (!row) return row
   let cleanNotes = row.notes || ''
   if (typeof cleanNotes === 'string' && cleanNotes.startsWith('{')) {
