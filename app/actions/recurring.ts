@@ -7,6 +7,7 @@ import type {
   RecurringVisitorSchedule, PaginatedResult,
 } from '@/types'
 import { isOnSchedule } from '@/lib/utils/schedule'
+import { normalizeBdPhone } from '@/lib/utils/guest-pass'
 import { PAGE_SIZE, WEEKDAYS } from '@/constants'
 import { writeAuditLog } from './audit'
 import { writeNotification } from './notifications'
@@ -47,13 +48,15 @@ export async function createRecurringVisitor(input: {
 
     const shortId = await getShortId(supabase)
 
+    const normalizedPhone = input.phone && input.phone.trim() ? normalizeBdPhone(input.phone.trim()) : null
+
     const { data: visitor, error } = await supabase
       .from('recurring_visitors')
       .insert({
         short_id:    shortId,
         full_name:   input.fullName.trim(),
         role:        input.role,
-        phone:       input.phone || null,
+        phone:       normalizedPhone,
         photo_url:   input.photoUrl || null,
         valid_until: input.validUntil || null,
         added_by:    user.id,

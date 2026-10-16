@@ -250,6 +250,7 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
     try {
       const formData = new FormData()
       formData.append('image', file)
+      formData.append('bucket', 'guest-photos')
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -262,7 +263,7 @@ export default function CreateGuestPassForm({ apartmentNumber, onSuccess }: Crea
       const uploadedUrl = result.displayUrl || result.url
       setPhotoUrl(uploadedUrl)
       setValue('guestPhotoUrl', uploadedUrl)
-      toast.success('Photo uploaded via ImgBB')
+      toast.success('Photo uploaded!')
     } catch (err: any) {
       toast.error(err?.message ?? 'Upload failed')
     } finally {

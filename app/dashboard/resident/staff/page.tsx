@@ -77,10 +77,12 @@ export default function StaffPage() {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 5 * 1024 * 1024) { toast.error('Photo must be under 5 MB'); return }
     setPhotoUploading(true)
     try {
       const formData = new FormData()
       formData.append('image', file)
+      formData.append('bucket', 'staff-photos')
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -91,7 +93,7 @@ export default function StaffPage() {
       if (!result.success) throw new Error(result.error || 'Upload failed')
 
       setForm((f) => ({ ...f, photoUrl: result.displayUrl || result.url }))
-      toast.success('Photo uploaded via ImgBB')
+      toast.success('Photo uploaded!')
     } catch (e: any) {
       toast.error(e.message ?? 'Upload failed')
     } finally {
@@ -255,14 +257,18 @@ export default function StaffPage() {
                 </div>
               )}
               <div>
-                <input type="file" id="staffPhoto" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
-                <label htmlFor="staffPhoto">
-                  <Button type="button" variant="outline" size="sm" className="gap-1.5 cursor-pointer" disabled={photoUploading}
-                    onClick={() => document.getElementById('staffPhoto')?.click()}>
-                    <Camera className="h-3.5 w-3.5" />
-                    {photoUploading ? 'Uploading…' : 'Upload Photo'}
-                  </Button>
-                </label>
+                <input type="file" id="staffPhoto" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={photoUploading}
+                  onClick={() => document.getElementById('staffPhoto')?.click()}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  {photoUploading ? 'Uploading…' : form.photoUrl ? 'Change Photo' : 'Upload Photo'}
+                </Button>
                 <p className="text-xs text-slate-400 mt-1">Shown to guard during check-in</p>
               </div>
             </div>
