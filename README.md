@@ -27,7 +27,7 @@ Below are the key UI screens from the application, displayed to give reviewers a
 
 ## 🔗 Live Demo
 
-**URL:** `@url:`https://visitor-management-system-8v4o.vercel.app/`
+**URL:** `@url:https://visitor-management-system-8v4o.vercel.app
 
 ---
 
